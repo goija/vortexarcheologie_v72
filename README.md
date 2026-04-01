@@ -67,3 +67,24 @@ Tips voor je GitHub Profile:
 
     Live Demo: Als je Node-RED publiek toegankelijk maakt via een tunnel (zoals ngrok), kun je zelfs een live demo-link toevoegen.
 
+    🌐 Node-RED Signaling Server
+
+De P2P-verbinding tussen de Scanner en de Resonator wordt tot stand gebracht via een WebSocket signaling bridge in Node-RED.
+Installatie van de Flow:
+
+    Lokaliseer het bestand: /config/vortex-signaling-flow.json.
+
+    Open je Node-RED editor (standaard op http://127.0.0.1:1880).
+
+    Ga naar Menu > Import en upload het JSON-bestand.
+
+    Klik op Deploy.
+
+Architectuur:
+
+De flow luistert op het endpoint /vortex. Het fungeert als een "relais-station":
+
+    Input: Ontvangt WebRTC SDP-offers, answers en ICE-candidates.
+
+    Output: Broadcast deze data naar alle verbonden peers zodat de P2P-tunnel (v72) geopend kan worden zonder tussenkomst van een externe STUN/TURN server in een lokaal netwerk.
+
