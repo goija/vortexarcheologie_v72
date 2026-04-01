@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>VORTEX v72 // FIREFOX PROTOCOL</title>
+    <style>
+        :root { 
+            --amber: #ffbf00; --blue: #00d2ff; --stone: #3c3f44; 
+            --clay: #a5a58d; --bg: #050608; --cell-size: 45px;
+        }
+        body, html { 
+            margin: 0; padding: 0; height: 100%; 
+            background: var(--bg); color: var(--amber); 
+            font-family: 'Courier New', monospace; 
+            display: grid; grid-template-columns: 380px 1fr;
+            /* overflow: hidden; VERWIJDERD VOOR FIREFOX 3D COMPATIBILITEIT */
+            user-select: none; 
+        }
+
+        .sidebar { background: rgba(10, 12, 15, 0.98); border-right: 2px solid var(--stone); padding: 20px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; z-index: 1000; box-shadow: 5px 0 20px #000; }
+        .status-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        .badge { padding: 4px 8px; border: 1px solid #333; font-size: 9px; background: #000; color: #444; border-radius: 2px; font-weight: bold; flex: 1; text-align: center; transition: 0.3s; }
+        .online { border-color: #0f0 !important; color: #0f0 !important; box-shadow: 0 0 8px rgba(0,255,0,0.4); }
+        .error { border-color: #f44 !important; color: #f44 !important; }
+
+        input[type=range], select, button { width: 100%; accent-color: var(--amber); margin-bottom: 10px; background: #000; color: var(--amber); border: 1px solid var(--stone); padding: 10px; font-family: inherit; font-size: 0.8rem; font-weight: bold; }
+        button:hover:not(:disabled) { border-color: #fff; color: #fff; cursor: pointer; }
+        button:disabled { opacity: 0.2; cursor: not-allowed; border-color: #333; color: #555; }
+
+        .viewport { position: relative; perspective: 1500px; background: #000; display: flex; align-items: center; justify-content: center; }
+        
+        #webcam { position: absolute; width: 100%; height: 100%; object-fit: cover; opacity: 0.6; pointer-events: none; z-index: 1; }
+        
+        #analysis-canvas { position: absolute; top: 15px; left: 15px; width: 128px; height: 128px; border: 2px solid #0f0; z-index: 9999; image-rendering: pixelated; background: #222; }
+
+        .grid-3d { position: relative; transform-style: preserve-3d; display: grid; grid-template-columns: repeat(8, var(--cell-size)); gap: 10px; transform: rotateX(25deg) rotateZ(-5deg); transition: transform 0.1s; z-index: 10; }
+        
+        .cell { 
+            width: var(--cell-size); height: var(--cell-size); 
+            border: 2px solid rgba(0, 210, 255, 0.8); 
+            background: rgba(20, 30, 40, 0.8); 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 1.1rem; font-weight: bold; color: rgba(255,255,255,0.8);
+            transition: transform 0.1s ease, background-color 0.1s ease;
+        }
+        
+        .cell.scanning { 
+            background: var(--amber) !important; color: #000 !important; 
+            box-shadow: 0 0 35px var(--amber); transform: translateZ(40px) scale(1.1) !important; 
+            z-index: 100; border-color: #fff !important;
+        }
+
+        .console { background: #000; height: 120px; overflow-y: auto; padding: 10px; font-size: 10px; color: #555; border-top: 1px solid #1a1a1a; margin-top: auto; line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2 style="margin:0; letter-spacing:2px; color: var(--blue); font-size: 1.3rem;">VORTEX v72</h2>
+        <div style="font-size: 9px; color: #777; margin-bottom: 10px;">FIREFOX PROTOCOL</div>
+        
+        <div class="status-row">
+            <div id="wsBadge" class="badge">WSS</div>
+            <div id="p2pBadge" class="badge">P2P</div>
+            <div id="camBadge" class="badge">CAM</div>
+            <div id="dataBadge" class="badge">DATA</div>
+        </div>
+
+        <label style="font-size: 10px; color: var(--clay);">1. KIES JE CAMERA:</label>
+        <select id="camSelect"><option value="">Zoeken...</option></select>
+
+        <label style="font-size: 10px; margin-top: 5px; color: var(--clay);">2. SYSTEEM ROL:</label>
+        <select id="roleSelect">
+            <option value="sender">VORTEX SCANNER (Zender + Cam)</option>
+            <option value="receiver">M2M RESONATOR (Ontvanger)</option>
+        </select>
+
+        <button id="btnInit">3. INITIALISEER CORE</button>
+        <button id="btnTunnel" disabled>4. OPEN P2P TUNNEL</button>
+        <button id="btnScan" disabled>5. START OMNI-RESONANCE</button>
+
+        <div style="background:#000; padding:10px; border:1px solid #222; margin-top:10px;">
+            <span style="font-size: 9px; color: var(--clay); display:block; margin-bottom:5px;">PUTUTU GAIN (ADEM)</span>
+            <input type="range" id="masterVol" min="0" max="1" step="0.01" value="0.5">
+            <div id="val-freq" style="color: #fff; font-size: 14px; text-align: center; margin-top:5px; font-family: monospace;">110.0 Hz</div>
+        </div>
+
+        <div id="consoleLog" class="console">> Systeem geladen (Gecko Engine Optimized).</div>
+    </div>
+
+    <div class="viewport" id="viewport">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="analysis-canvas" width="64" height="64"></canvas>
+        <div class="grid-3d" id="grid"></div>
+    </div>
+
+<script>
+    const myID = "VTX-" + Math.random().toString(36).substr(2, 5);
+    let ws, pc, dc, role, aCtx, master, video, canvas, ctx, localStream;
+    let currentBrightness = 0.5;
+    let iceQueue = [];
+    let playing = false, step = 0;
+
+    const deBruijn64 = "0000001000011000101000111001001011001101001111010101110110111111";
+    const bits = deBruijn64.split('').map(Number);
+    const cellEls = [];
+
+    function log(msg, color="#555") {
+        const c = document.getElementById('consoleLog');
+        c.innerHTML = `<div><span style="color:#222">[${new Date().toLocaleTimeString()}]</span> <span style="color:${color}">${msg}</span></div>` + c.innerHTML;
+    }
+
+    navigator.mediaDevices.getUserMedia({video: true}).then(() => {
+        navigator.mediaDevices.enumerateDevices().then(devices => {
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            const select = document.getElementById('camSelect');
+            select.innerHTML = ''; 
+            videoDevices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.deviceId;
+                option.text = device.label || `Camera (${device.deviceId.substring(0,5)})`;
+                select.appendChild(option);
+            });
+            log("Hardware lijst succesvol ingeladen.", "#0f0");
+        });
+    }).catch(err => log("Geef Firefox eerst camera-toestemming!", "#f44"));
+
+    function buildGrid() {
+        const g = document.getElementById('grid');
+        g.innerHTML = '';
+        for (let i = 0; i < 64; i++) {
+            const c = document.createElement('div'); 
+            c.className = 'cell'; c.innerText = bits[i];
+            g.appendChild(c); cellEls.push(c);
+        }
+    }
+    buildGrid();
+
+    document.getElementById('btnInit').onclick = async () => {
+        role = document.getElementById('roleSelect').value;
+        log(`Systeem start als ${role.toUpperCase()}...`, "#00d2ff");
+        
+        initAudio();
+        video = document.getElementById('webcam');
+        canvas = document.getElementById('analysis-canvas');
+        ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        if(role === 'sender') {
+            await initCamera();
+        } else {
+            log("Wacht op videostream van de Zender...", "#aaa");
+            updateCanvasGrid(); 
+        }
+        connectSignaling();
+    };
+
+    function initAudio() {
+        if(aCtx) return;
+        aCtx = new (window.AudioContext || window.webkitAudioContext)();
+        master = aCtx.createGain(); master.connect(aCtx.destination);
+        log("Audio Context Ready.", "#0f0");
+    }
+
+    async function initCamera() {
+        const deviceId = document.getElementById('camSelect').value;
+        const constraints = { video: deviceId ? { deviceId: { exact: deviceId }, width: 640, height: 480 } : true, audio: false };
+
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = localStream;
+            video.onloadedmetadata = () => {
+                video.play().then(() => {
+                    document.getElementById('camBadge').classList.add('online');
+                    log(`Camera actief. Resolutie: ${video.videoWidth}x${video.videoHeight}`, "#0f0");
+                    updateCanvasGrid(); 
+                }).catch(e => log(`Video Play Error: ${e}`, "#f44"));
+            };
+        } catch(e) {
+            log(`Camera Error: ${e.message}`, "#f44");
+        }
+    }
+
+    function updateCanvasGrid() {
+        // FIREFOX FIX: Check video.readyState (2 = HAVE_CURRENT_DATA)
+        if (!ctx || video.videoWidth === 0 || video.paused || video.readyState < 2) { 
+            requestAnimationFrame(updateCanvasGrid); 
+            return; 
+        }
+        
+        try {
+            ctx.drawImage(video, 0, 0, 64, 64);
+            const frame = ctx.getImageData(0, 0, 64, 64).data;
+            let totalBrightness = 0;
+
+            for (let y = 0; y < 8; y++) {
+                for (let x = 0; x < 8; x++) {
+                    const i = (y * 8) + x;
+                    const px = (x * 8) + 4; 
+                    const py = (y * 8) + 4;
+                    const pixelIdx = ((py * 64) + px) * 4;
+                    
+                    const r = frame[pixelIdx] || 0;
+                    const g = frame[pixelIdx+1] || 0;
+                    const b = frame[pixelIdx+2] || 0;
+                    const avg = (r + g + b) / 3;
+                    totalBrightness += avg;
+
+                    const cell = cellEls[i];
+                    if(!cell.classList.contains('scanning')) {
+                        const cellR = Math.max(r, 30);
+                        const cellG = Math.max(g, 40);
+                        const cellB = Math.max(b, 50);
+                        
+                        cell.style.backgroundColor = `rgba(${cellR}, ${cellG}, ${cellB}, 0.85)`;
+                        
+                        const jitter = (avg / 255) * 40; 
+                        cell.style.transform = `translateZ(${jitter}px)`;
+                        cell.style.color = avg > 50 ? `rgba(255,191,0, 1)` : 'rgba(255,255,255,0.7)';
+                    }
+                }
+            }
+            currentBrightness = totalBrightness / (64 * 255);
+        } catch (e) {
+            log("Canvas Map Error: " + e.message, "#f44");
+        }
+        requestAnimationFrame(updateCanvasGrid);
+    }
+
+    function connectSignaling() {
+        ws = new WebSocket("ws://127.0.0.1:1880/vortex");
+        ws.onopen = () => {
+            document.getElementById('wsBadge').classList.add('online');
+            setupWebRTC();
+            if(role === 'sender') document.getElementById('btnTunnel').disabled = false;
+        };
+        ws.onmessage = async (e) => {
+            const data = JSON.parse(e.data).payload || JSON.parse(e.data);
+            if (data.senderID === myID) return;
+
+            if (data.type === 'offer' && role === 'receiver') {
+                await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                const ans = await pc.createAnswer();
+                await pc.setLocalDescription(ans);
+                ws.send(JSON.stringify({payload: {type:'answer', answer:ans, senderID:myID}}));
+                processIce();
+            } else if (data.type === 'answer' && role === 'sender') {
+                await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                processIce();
+            } else if (data.candidate) {
+                if (!pc.remoteDescription) iceQueue.push(data.candidate);
+                else pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+        };
+    }
+
+    function setupWebRTC() {
+        pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+        pc.onicecandidate = e => { if(e.candidate) ws.send(JSON.stringify({payload:{candidate:e.candidate, senderID:myID}})); };
+        pc.onconnectionstatechange = () => {
+            if(pc.connectionState === 'connected') {
+                document.getElementById('p2pBadge').classList.add('online');
+                if(role === 'sender') document.getElementById('btnScan').disabled = false;
+            }
+        };
+
+        if(role === 'sender' && localStream) {
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            dc = pc.createDataChannel("vortex");
+            setupDC();
+        } else {
+            pc.ontrack = (e) => {
+                video.srcObject = e.streams[0];
+                video.onloadedmetadata = () => {
+                    video.play().then(() => {
+                        document.getElementById('camBadge').classList.add('online');
+                    });
+                };
+            };
+            pc.ondatachannel = (e) => { dc = e.channel; setupDC(); };
+        }
+    }
+
+    function setupDC() {
+        const onOpen = () => { document.getElementById('dataBadge').classList.add('online'); };
+        if (dc.readyState === 'open') onOpen(); else dc.onopen = onOpen;
+
+        dc.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+            executeStep(data.step, data.bright);
+        };
+    }
+
+    async function processIce() { while(iceQueue.length > 0) try { await pc.addIceCandidate(new RTCIceCandidate(iceQueue.shift())); } catch(e) {} }
+
+    document.getElementById('btnTunnel').onclick = async () => {
+        const off = await pc.createOffer(); await pc.setLocalDescription(off);
+        ws.send(JSON.stringify({payload: {type:'offer', offer:off, senderID:myID}}));
+    };
+
+    document.getElementById('btnScan').onclick = () => {
+        playing = !playing;
+        document.getElementById('btnScan').innerText = playing ? "STOP RESONANCE" : "5. START OMNI-RESONANCE";
+        if(playing) run();
+    };
+
+    function run() {
+        if(!playing) return;
+        if(dc && dc.readyState === 'open') dc.send(JSON.stringify({ step: step, bright: currentBrightness }));
+        executeStep(step, currentBrightness);
+        step = (step + 1) % 64; 
+        setTimeout(run, 180);
+    }
+
+    function executeStep(s, bright) {
+        cellEls.forEach(c => c.classList.remove('scanning'));
+        let win = "";
+        for(let i=0; i<6; i++) {
+            let idx = (s + i) % 64;
+            win += bits[idx];
+            cellEls[idx].classList.add('scanning');
+        }
+        playPututu(parseInt(win, 2), bright);
+    }
+
+    function playPututu(dec, bright) {
+        if(!aCtx) return;
+        const freq = 110 + (dec * 0.4);
+        document.getElementById('val-freq').innerText = `${freq.toFixed(1)} Hz`;
+
+        const noise = aCtx.createBufferSource();
+        const b = aCtx.createBuffer(1, aCtx.sampleRate * 0.05, aCtx.sampleRate);
+        const out = b.getChannelData(0);
+        for (let i = 0; i < b.length; i++) out[i] = Math.random() * 2 - 1;
+        noise.buffer = b;
+
+        const f = aCtx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = freq; f.Q.value = 50;
+        const env = aCtx.createGain();
+        
+        const gainLevel = Math.max(0.05, bright) * document.getElementById('masterVol').value * 2.5;
+        env.gain.setValueAtTime(0, aCtx.currentTime);
+        env.gain.linearRampToValueAtTime(gainLevel, aCtx.currentTime + 0.02);
+        env.gain.exponentialRampToValueAtTime(0.001, aCtx.currentTime + 1.2);
+
+        noise.connect(f); f.connect(env); env.connect(master);
+        noise.start();
+    }
+
+    window.addEventListener('mousemove', (e) => {
+        const x = (e.clientX / window.innerWidth - 0.5) * 20;
+        const y = (e.clientY / window.innerHeight - 0.5) * -20;
+        document.getElementById('grid').style.transform = `rotateX(${25 + y}deg) rotateY(${x}deg)`;
+    });
+</script>
+</body>
+</html>
