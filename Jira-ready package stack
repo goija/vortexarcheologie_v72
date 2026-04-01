@@ -1,0 +1,43 @@
+Jira-ready package stack
+
+📦 VORTEX Core Package (package.json)
+
+Dit bestand definieert je project, de afhankelijkheden (zoals de WebSocket server) en de scripts om het systeem te starten.
+
+{
+  "name": "vortex-archaeo-engine",
+  "version": "72.0.0",
+  "description": "Procedural Auralization Engine based on De Bruijn B(2,6) sequences and WebRTC M2M tunneling.",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "dev": "node-red",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "Archaeoacoustics",
+    "WebRTC",
+    "De Bruijn",
+    "Physical Modeling",
+    "Auralization"
+  ],
+  "author": "Multimedia Scientist",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.13.0"
+  }
+}
+
+🛠️ Jira Integratie Strategie
+
+Om je workflow uit de screenshots (v30 t/m v72) te koppelen aan Jira-tickets, kun je de volgende structuur aanhouden in je commits:
+Task Type	Jira Key	Omschrijving
+Feature	VTX-72	Implementatie van de Firefox Gecko Engine optimalisatie.
+Bugfix	VTX-FIX	Oplossen van de 'Black Room' luminantie crash.
+Data	VTX-1970	Injectie van simkaart-metadata voor ochtendresonantie-presets.
+📜 De "Theory.md" voor GitHub
+
+In je vorige bericht gaf je een briljante samenvatting van de De Bruijn-sequencer en Archeoakoestiek. Ik heb deze samengevoegd tot een technisch document dat je naast je README.md kunt plaatsen.
+Fragment uit Theory.md:
+
+    De Pututu Synthese: > Het systeem gebruikt Karplus-Strong synthese waarbij de Excitatie (witte ruis) de menselijke adem simuleert en de Resonator (Biquad bandpass filters op 110 Hz) de stenen kamers van Chavín de Huántar nabootst. De De Bruijn-sequencer zorgt ervoor dat geen enkele akoestische hoek van de 5D-matrix onverkend blijft.
