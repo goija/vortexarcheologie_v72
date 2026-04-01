@@ -1,1 +1,13 @@
 
+{
+  "name": "vortex-archaeo-engine",
+  "version": "72.0.0",
+  "description": "Procedural Auralization Engine - De Bruijn B(2,6) & WebRTC",
+  "main": "core/vortex_v72.html",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "signaling": "node-red"
+  },
+  "author": "Multimedia Scientist",
+  "license": "MIT"
+}
