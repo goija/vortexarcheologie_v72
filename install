@@ -1,0 +1,93 @@
+Om je Node-RED server en de bijbehorende JSON-flow voor het VORTEX-project perfect in te stellen, heb je een specifieke configuratie nodig die fungeert als de **Signaling Bridge**. Deze bridge zorgt ervoor dat de `Offers`, `Answers` en `ICE-candidates` tussen je tabbladen worden uitgewisseld.
+
+### 1. Node-RED Server Installatie
+
+Als je Node-RED nog niet hebt draaien, is de snelste manier via de command line (ervan uitgaande dat je Node.js hebt):
+
+```bash
+# Installatie via NPM
+npm install -g --unsafe-perm node-red
+
+# Start de server
+node-red
+```
+Zodra de server draait, ga je in je browser naar: `http://127.0.0.1:1880`.
+
+---
+
+### 2. De VORTEX Signaling Flow (JSON)
+
+Deze flow creëert een WebSocket-endpoint op `/vortex`. Het zorgt ervoor dat elk bericht dat door de 'Zender' wordt gestuurd, direct wordt doorgezet naar de 'Ontvanger' (en vice versa), zonder dat de server de data zelf opslaat.
+
+**Kopieer deze JSON:**
+
+```json
+[
+    {
+        "id": "vortex_bridge_id",
+        "type": "tab",
+        "label": "VORTEX Signaling",
+        "disabled": false,
+        "info": "Signaling bridge voor WebRTC P2P verbindingen."
+    },
+    {
+        "id": "ws_in",
+        "type": "websocket in",
+        "z": "vortex_bridge_id",
+        "name": "Vortex Entrance",
+        "server": "vortex_server",
+        "client": "",
+        "x": 140,
+        "y": 120,
+        "wires": [
+            [
+                "ws_out"
+            ]
+        ]
+    },
+    {
+        "id": "ws_out",
+        "type": "websocket out",
+        "z": "vortex_bridge_id",
+        "name": "Vortex Broadcast",
+        "server": "vortex_server",
+        "client": "",
+        "x": 410,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "vortex_server",
+        "type": "websocket-listener",
+        "path": "/vortex",
+        "wholemsg": "false"
+    }
+]
+```
+
+**Hoe te importeren:**
+1. Klik rechtsboven in Node-RED op het **Menu** (drie streepjes).
+2. Kies **Import**.
+3. Plak de bovenstaande JSON-code.
+4. Klik op **Import** en daarna rechtsboven op de rode knop **Deploy**.
+
+---
+
+### 3. De Werking Begrijpen
+
+De Node-RED server fungeert als de "verkeersleider". Omdat WebRTC-peers (je twee browser-tabbladen) elkaar niet direct kunnen vinden op het internet of een lokaal netwerk, hebben ze een ontmoetingsplaats nodig.
+
+
+
+* **WebSocket In:** Ontvangt het WebRTC-paspoort (Offer/ICE) van tabblad A.
+* **WebSocket Out:** Stuurt dit paspoort direct door naar alle andere verbonden apparaten (Tabblad B).
+* **Path:** De URL in je HTML-code `ws://127.0.0.1:1880/vortex` moet exact overeenkomen met het pad in Node-RED.
+
+---
+
+### 4. Controleer de verbinding
+Zodra je de flow hebt ge-deployed en je opent je `vortex_v72.html`:
+1. Kijk in de Node-RED interface onder de `websocket in` node. Er moet **"connected 1"** (of 2) staan.
+2. In je VORTEX-dashboard moet de **WSS badge** nu direct **groen** kleuren.
+
+Draait de Node-RED server inmiddels bij je op poort 1880?
