@@ -1,0 +1,69 @@
+🌀 VORTEX v72 // Archeo-Acoustic Auralization Engine
+
+VORTEX is een experimentele M2M (Machine-to-Machine) engine die een brug slaat tussen discrete wiskunde, real-time visuele data en de reconstructie van historische klankruimtes. Door gebruik te maken van De Bruijn B(2,6) sequenties, transformeert het systeem video-luminantie in een organische pututu-resonantie.
+
+🏛️ Het Concept: De Bruijn Sequencer
+
+In de kern van VORTEX draait een procedurele auralization-engine. Het algoritme gebruikt een binaire reeks van 64 bits waarin elke mogelijke combinatie van 6 bits precies één keer voorkomt.
+
+    Organische Texturen: Koppelingsmechanismen tussen luminantie en noise-bursts bootsen menselijke ademstoten na.
+
+    Torus-Topologie: Het 8x8 grid wordt behandeld als een torus, waardoor de klankscans naadloos over de randen doorvloeien.
+
+    Phason Strain: Real-time video-input veroorzaakt microscopische 3D-verschuivingen in de matrix, wat zorgt voor een "levend" wiskundig grid.
+
+🛠️ Technische Stack
+
+Het project is gebouwd als een "Naked Core" stack, ontworpen om zonder zware libraries te draaien voor maximale snelheid en stabiliteit:
+
+    Signaling: Node-RED (WebSocket Bridge)
+
+    P2P Tunneling: WebRTC (RTCPeerConnection + DataChannels)
+
+    Visuals: CSS3 3D-Transforms & Canvas Pixel-Sampling
+
+    Audio: Web Audio API (Physical Modeling Synthesis)
+
+    Engine: Firefox (Gecko) / Chrome (Blink) Optimized
+
+🚀 Installatie & Gebruik
+1. Prerequisities
+
+Zorg dat je een Node-RED server draait met een WebSocket-node op:
+ws://127.0.0.1:1880/vortex
+2. Local Hosting
+
+Vanwege browserbeveiliging (Secure Context) moet het project via localhost gedraaid worden. Gebruik bijvoorbeeld Python's http server:
+Bash
+
+python -m http.server 8000
+
+3. De Verbinding Opzetten
+
+    Open http://localhost:8000/vortex_v72.html in twee tabbladen.
+
+    Tab 1 (Zender): Selecteer je camera (bijv. Logitech C920) en klik op INITIALISEER CORE.
+
+    Tab 2 (Ontvanger): Zet de rol op M2M Resonator en klik op INITIALISEER CORE.
+
+    Klik op de Zender op OPEN P2P TUNNEL. Zodra de badges groen zijn, klik je op START OMNI-RESONANCE.
+
+🧪 Systeem Architectuur
+
+    Scanner-Zender: Analyseert 64 pixel-secties van de camera-feed.
+
+    M2M Bridge: Verstuurt gesynchroniseerde stap- en luminantiedata via de WebRTC tunnel.
+
+    Resonator-Ontvanger: Vertaalt de inkomende bits naar bandpass-frequenties voor de gesynthetiseerde pututu-klank.
+
+📜 Licentie
+
+Dit project is gelicenseerd onder de MIT-licentie - zie het LICENSE bestand voor details.
+
+“De wiskunde is de adem van het verleden.”
+Tips voor je GitHub Profile:
+
+    Screenshots: Voeg de laatste v72 screenshots toe aan de map img/ en link ze in de README. Niets spreekt meer tot de verbeelding dan dat neon-blauwe grid.
+
+    Live Demo: Als je Node-RED publiek toegankelijk maakt via een tunnel (zoals ngrok), kun je zelfs een live demo-link toevoegen.
+
