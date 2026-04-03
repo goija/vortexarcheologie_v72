@@ -1,0 +1,525 @@
+
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX KOSMISCHE CASCADE & STRICT SYMMETRY (V36 FIX)</title>
+    <style>
+        :root {
+            --bg: #020204;
+            --cyan: #00e5ff;
+            --orange: #ff9900;
+            --red: #ff3333;
+            --green: #39ff14;
+            --dark-cyan: #003333;
+            --panel-bg: rgba(0, 15, 20, 0.6);
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--cyan);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        h1, h2, h3 {
+            margin-top: 0;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            text-shadow: 0 0 5px var(--cyan);
+        }
+
+        h1 { color: var(--orange); text-shadow: 0 0 10px var(--orange); font-size: 1.5em; margin-bottom: 20px;}
+        h2 { font-size: 1.1em; border-bottom: 1px solid var(--dark-cyan); padding-bottom: 5px; }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            height: 100%;
+        }
+
+        .panel {
+            border: 1px solid var(--cyan);
+            background: var(--panel-bg);
+            padding: 15px;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.1);
+            overflow-y: auto;
+        }
+
+        /* --- Left Side (Acoustics) --- */
+        .col-acoustics { flex: 1; min-width: 250px; }
+        .col-canvas { flex: 1.5; min-width: 300px; }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            border-bottom: 1px dashed var(--dark-cyan);
+            padding-bottom: 4px;
+        }
+
+        .value { color: var(--orange); font-weight: bold; }
+        .value-red { color: var(--red); font-weight: bold; }
+
+        button {
+            background: rgba(0, 229, 255, 0.05);
+            border: 1px solid var(--cyan);
+            color: var(--cyan);
+            padding: 10px;
+            cursor: pointer;
+            width: 100%;
+            font-family: inherit;
+            font-size: 12px;
+            text-transform: uppercase;
+            transition: 0.2s;
+        }
+        button:hover { background: var(--cyan); color: var(--bg); box-shadow: 0 0 10px var(--cyan); }
+        button.active-orange { background: var(--orange); border-color: var(--orange); color: var(--bg); box-shadow: 0 0 15px var(--orange); }
+        button.active-green { background: var(--green); border-color: var(--green); color: var(--bg); box-shadow: 0 0 15px var(--green); font-weight: bold; }
+
+        .btn-group { display: flex; gap: 5px; margin-top: 10px; }
+        .btn-group button { padding: 8px 0; font-size: 11px; }
+
+        input[type="range"] { width: 100%; accent-color: var(--orange); margin: 10px 0; }
+
+        #renderCanvas {
+            background: #000;
+            border: 1px solid var(--red);
+            width: 100%;
+            height: 400px;
+            box-shadow: 0 0 15px rgba(255, 51, 51, 0.2) inset;
+            cursor: grab;
+            touch-action: none; /* Prevent scroll on touch devices */
+        }
+        #renderCanvas:active { cursor: grabbing; }
+
+        /* --- Right Side (Symmetry & Grid) --- */
+        .col-symmetry { flex: 1; min-width: 280px; border-left: 2px solid #111; padding-left: 15px; }
+        .col-grid { flex: 1.5; min-width: 400px; display: flex; align-items: center; justify-content: center; background: #000; border: 1px solid #111; overflow: hidden;}
+
+        .led-container { display: flex; justify-content: space-between; margin-bottom: 15px; padding: 0 20px;}
+        .led-box { text-align: center; font-size: 10px; cursor: pointer; transition: 0.2s; padding: 5px; border-radius: 5px; }
+        .led-box:hover { background: rgba(255,255,255,0.1); }
+        .led { width: 10px; height: 10px; border-radius: 50%; background: var(--green); margin: 0 auto 5px auto; box-shadow: 0 0 8px var(--green); transition: 0.3s; }
+
+        .role-box { border: 1px solid var(--green); color: var(--green); padding: 10px; text-align: center; font-weight: bold; font-size: 1.2em; margin-bottom: 15px; box-shadow: 0 0 10px rgba(57, 255, 20, 0.2) inset;}
+
+        .data-block { border: 1px solid var(--dark-cyan); padding: 10px; margin-bottom: 15px; background: rgba(0,0,0,0.5); }
+        .data-title { color: #555; margin-bottom: 5px; font-size: 10px; }
+        .data-orange { color: var(--orange); word-break: break-all; margin-bottom: 10px; font-size: 11px;}
+        .data-green { color: var(--green); word-break: break-all; margin-bottom: 10px; font-size: 11px;}
+        
+        .console { margin-top: 15px; font-size: 10px; color: #aaa; line-height: 1.4; }
+        .console-highlight { color: var(--green); }
+
+        /* --- 3D Letter Grid --- */
+        .letter-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 5px;
+            width: 90%;
+            height: 90%;
+            transition: transform 0.5s ease-in-out; /* Smooth mirror animation */
+        }
+
+        .cube {
+            position: relative;
+            background: rgba(0, 10, 20, 0.8);
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: #ddd;
+            box-shadow: -2px -2px 0px rgba(255, 51, 51, 0.5), 2px 2px 0px rgba(0, 229, 255, 0.5);
+            text-shadow: 0 0 5px rgba(255,255,255,0.5);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .cube:hover {
+            background: rgba(0, 229, 255, 0.2);
+            color: #fff;
+            box-shadow: -3px -3px 0px rgba(255, 51, 51, 0.8), 3px 3px 0px rgba(0, 229, 255, 0.8);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- COLUMN 1: Acoustics Control -->
+    <div class="column col-acoustics">
+        <h1>[ VORTEX KOSMISCHE CASCADE ]</h1>
+        <div class="panel">
+            <h2>1. AKOESTISCHE ENGINE</h2>
+            <button id="masterPowerBtn" class="active-orange">KLIK HIER OM AUDIO TE STARTEN</button>
+            
+            <div style="margin-top: 15px;">
+                <span style="font-size: 10px;">HISTORISCHE GRONDFREQUENTIES</span>
+                <div class="btn-group">
+                    <button class="freq-btn active-orange" data-freq="256">256 HZ (C)</button>
+                    <button class="freq-btn" data-freq="265">265 HZ (C#)</button>
+                    <button class="freq-btn" data-freq="285">285 HZ (D)</button>
+                    <button class="freq-btn" style="border-color: var(--red); color: var(--red);" data-freq="999">999 HZ</button>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <div class="data-row"><span>Volume / Luchtdruk:</span> <span class="value" id="vol-val">73 dB</span></div>
+                <input type="range" id="vol-slider" min="0" max="100" value="73">
+                
+                <div class="data-row" style="margin-top:10px;"><span>LIDIT-fase (rc constante):</span> <span class="value-red" id="rc-val">5.753</span></div>
+                <input type="range" id="rc-slider" min="1000" max="15000" value="5753">
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>2. SYSTEEM PARAMETERS</h2>
+            <div class="data-row"><span>Actieve Frequentie:</span> <span class="value" id="actuele-freq">256.000 Hz</span></div>
+            <div class="data-row"><span>Camera Rotatie X:</span> <span class="value" id="cam-x">0.30</span></div>
+            <div class="data-row"><span>Camera Rotatie Y:</span> <span class="value" id="cam-y">0.00</span></div>
+        </div>
+    </div>
+
+    <!-- COLUMN 2: Wireframe Canvas -->
+    <div class="column col-canvas">
+        <div class="panel" style="height: 100%;">
+            <h2>[ 3D SCHELP: WIREFRAME RESONANTIE ]</h2>
+            <canvas id="renderCanvas"></canvas>
+            <div class="data-row" style="margin-top: 10px; border:none;">
+                <span>RENDER MODE:</span> <span class="value-red">REAL-TIME WEBGL / 3D PERSPECTIVE</span>
+            </div>
+            <p style="font-size: 10px; color: #666; line-height: 1.4;">
+                Trek met de <b>muis</b> of gebruik <b>W A S D</b> om de spiraal in 3D te roteren. 
+                De structuur heeft nu echte Z-diepte.
+            </p>
+        </div>
+    </div>
+
+    <!-- COLUMN 3: Strict Symmetry P2P -->
+    <div class="column col-symmetry">
+        <div class="panel" style="height: 100%; border-color: #222; background: #010101;">
+            <h2 style="color: var(--cyan); border-bottom-color: #333;">VORTEX v36 // STRICT SYMMETRY</h2>
+            
+            <div class="led-container">
+                <div class="led-box"><div class="led"></div>AUDIO</div>
+                <div class="led-box"><div class="led"></div>WSS</div>
+                <div class="led-box"><div class="led"></div>P2P</div>
+                <!-- MIRR LED IS NOW CLICKABLE -->
+                <div class="led-box" id="mirr-btn" title="Klik om spiegelbeeld aan/uit te zetten">
+                    <div class="led" id="mirr-led" style="background:#333; box-shadow:none;"></div>MIRR
+                </div>
+            </div>
+
+            <div class="role-box">ROL: MASTER (ZENDER)</div>
+
+            <div class="data-block">
+                <div class="data-title">SENA1R BTNA1R (BASE-6)</div>
+                <div class="data-orange">0B03B03B03B03B03B03B03B03B03B03B03B03B03B03B03B03B03B03B03B03B03B03B</div>
+                <div class="data-title">HEXADECIMAAL (52 TEKENS)</div>
+                <div class="data-green">0x0000000000000000000000000000000000000000000000000000</div>
+            </div>
+
+            <button style="border-color: var(--cyan); margin-bottom: 10px;" onclick="logConsole('Core Initialized...')">1. INIT CORE</button>
+            <button style="border-color: #555; color: #555; margin-bottom: 10px;" onclick="logConsole('Opening P2P Tunnel...')">2. OPEN P2P TUNNEL</button>
+            <button class="active-green" onclick="logConsole('X-CROSS SCAN Gestart.')">3. START X-CROSS SCAN</button>
+
+            <div class="console" id="console-log">
+                [MUIS SLEPEN] of [W A S D]: Camera Rotatie<br>
+                [KLIK MIRR LED]: Activeer spiegelbeeld<br><br>
+                > Systeem geladen. versie: v36.<br>
+                <span class="console-highlight">> Wacht op interactie...</span><br>
+            </div>
+        </div>
+    </div>
+
+    <!-- COLUMN 4: 3D Cube Grid -->
+    <div class="column col-grid">
+        <div class="letter-grid" id="cubeGrid">
+            <!-- Cubes injected via JS -->
+        </div>
+    </div>
+
+<script>
+    // --- Audio Context Setup ---
+    let audioCtx, masterGain, oscBase, analyser;
+    let isAudioActive = false;
+    let dataArray;
+
+    // --- 3D Camera & Rendering Systeem ---
+    const canvas = document.getElementById('renderCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let time = 0;
+    let currentFreq = 256;
+    let rcValue = 5.753;
+    let volumeDb = 73;
+
+    // 3D Camera Rotatie Variabelen
+    let rotX = 0.3; // Kantel beetje naar voren voor 3D effect
+    let rotY = 0.0;
+    
+    // Muis Interactie (verbeterd met pointer capture)
+    let isDragging = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+
+    // MIRR Status
+    let isMirrored = false;
+
+    function resizeCanvas() {
+        canvas.width = canvas.parentElement.clientWidth - 30;
+        canvas.height = 350;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Muis Event Listeners op het Canvas
+    canvas.addEventListener('pointerdown', (e) => {
+        isDragging = true;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        canvas.setPointerCapture(e.pointerId); // Voorkomt dat slepen stopt buiten canvas
+    });
+
+    canvas.addEventListener('pointerup', (e) => {
+        isDragging = false;
+        canvas.releasePointerCapture(e.pointerId);
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+        if (isDragging) {
+            let deltaX = e.clientX - lastMouseX;
+            let deltaY = e.clientY - lastMouseY;
+            
+            rotY += deltaX * 0.01;
+            rotX -= deltaY * 0.01; 
+            
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+
+            // Update UI
+            document.getElementById('cam-x').innerText = rotX.toFixed(2);
+            document.getElementById('cam-y').innerText = rotY.toFixed(2);
+        }
+    });
+
+    // Toetsenbord Event Listeners (WASD)
+    window.addEventListener('keydown', (e) => {
+        const speed = 0.1;
+        if(e.key === 'w' || e.key === 'W') rotX += speed;
+        if(e.key === 's' || e.key === 'S') rotX -= speed;
+        if(e.key === 'a' || e.key === 'A') rotY -= speed;
+        if(e.key === 'd' || e.key === 'D') rotY += speed;
+        
+        document.getElementById('cam-x').innerText = rotX.toFixed(2);
+        document.getElementById('cam-y').innerText = rotY.toFixed(2);
+    });
+
+    // --- MIRR LOGICA ---
+    const mirrBtn = document.getElementById('mirr-btn');
+    const mirrLed = document.getElementById('mirr-led');
+    const cubeGrid = document.getElementById('cubeGrid');
+
+    mirrBtn.addEventListener('click', () => {
+        isMirrored = !isMirrored;
+        if(isMirrored) {
+            mirrLed.style.background = 'var(--green)';
+            mirrLed.style.boxShadow = '0 0 8px var(--green)';
+            cubeGrid.style.transform = 'scaleX(-1)'; // Spiegel de grid visueel!
+            logConsole('MIRR MODUS: ACTIEF (Spiegelbeeld)');
+        } else {
+            mirrLed.style.background = '#333';
+            mirrLed.style.boxShadow = 'none';
+            cubeGrid.style.transform = 'scaleX(1)';
+            logConsole('MIRR MODUS: UIT');
+        }
+    });
+
+
+    // --- 3D RENDERING LOOP ---
+    function draw() {
+        requestAnimationFrame(draw);
+
+        // Bepaal amplitude (audio data OF gesimuleerd)
+        let rms = 0;
+        if (isAudioActive && analyser) {
+            analyser.getByteTimeDomainData(dataArray);
+            for (let i = 0; i < dataArray.length; i++) {
+                let val = (dataArray[i] - 128) / 128;
+                rms += val * val;
+            }
+            rms = Math.sqrt(rms / dataArray.length);
+        } else {
+            rms = 0.05 + Math.sin(time) * 0.02; // Zachte ademhaling als audio uit is
+        }
+
+        const amplitudeMod = 1 + (volumeDb / 100) * 2 + (rms * 2);
+
+        // Achtergrond
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(255, 51, 51, ${0.4 + (rms * 2)})`; 
+        ctx.lineWidth = 1.5;
+
+        const rotSnelheid = currentFreq / 2000;
+        const fov = 400; // Field of View voor perspectief
+        const viewerDist = 200;
+        
+        // 3D Rendering Logica
+        for (let i = 0; i < 400; i++) {
+            const t = i * 0.05 + (time * rotSnelheid);
+            
+            // 1. Bereken ruwe 3D Posities (X, Y, Z)
+            const basisRadius = 15 * amplitudeMod;
+            const R = basisRadius * rcValue + Math.sin(t * 2.5) * 40;
+            const r = 25 + Math.cos(t * 4) * 30;
+            
+            let originalX = Math.cos(t) * R + Math.cos(t * rcValue) * r;
+            let originalY = Math.sin(t) * R + Math.sin(t * rcValue) * r;
+            let originalZ = Math.sin(t * 1.5) * 100; // Diepte toevoegen
+
+            // 2. Pas 3D Rotatie Matrix toe (Rotatie rond X en Y as)
+            let yRot = originalY * Math.cos(rotX) - originalZ * Math.sin(rotX);
+            let zRot = originalY * Math.sin(rotX) + originalZ * Math.cos(rotX);
+            
+            let finalX = originalX * Math.cos(rotY) + zRot * Math.sin(rotY);
+            let finalZ = -originalX * Math.sin(rotY) + zRot * Math.cos(rotY);
+            let finalY = yRot;
+
+            // MIRR Logic: Spiegel X als actief is
+            if(isMirrored) finalX = -finalX;
+
+            // 3. Perspectief (Z-Divide) toepassen
+            let zScale = fov / (fov + finalZ + viewerDist);
+            if (zScale < 0) zScale = 0.01; // Achter de camera preventie
+
+            const screenX = cx + finalX * zScale;
+            const screenY = cy + finalY * zScale;
+
+            if (i === 0) ctx.moveTo(screenX, screenY);
+            else ctx.lineTo(screenX, screenY);
+            
+            // Teken de dwarse wireframe draden
+            if (i % 7 === 0) {
+                let innerOx = Math.cos(t) * (R - r * 0.5);
+                let innerOy = Math.sin(t) * (R - r * 0.5);
+                
+                let innerYRot = innerOy * Math.cos(rotX) - originalZ * Math.sin(rotX);
+                let innerZRot = innerOy * Math.sin(rotX) + originalZ * Math.cos(rotX);
+                
+                let finalInnerX = innerOx * Math.cos(rotY) + innerZRot * Math.sin(rotY);
+                let finalInnerY = innerYRot;
+                let finalInnerZ = -innerOx * Math.sin(rotY) + innerZRot * Math.cos(rotY);
+
+                if(isMirrored) finalInnerX = -finalInnerX;
+
+                let innerZScale = fov / (fov + finalInnerZ + viewerDist);
+                if (innerZScale < 0) innerZScale = 0.01;
+
+                ctx.moveTo(screenX, screenY);
+                ctx.lineTo(cx + finalInnerX * innerZScale, cy + finalInnerY * innerZScale);
+            }
+        }
+        ctx.stroke();
+        time += 0.02;
+    }
+    
+    // Start the animation loop immediately
+    draw();
+
+    // --- Audio & UI Controls ---
+    document.getElementById('vol-slider').addEventListener('input', (e) => {
+        volumeDb = e.target.value;
+        document.getElementById('vol-val').innerText = volumeDb + " dB";
+        if(masterGain) {
+            masterGain.gain.value = Math.pow(10, (volumeDb - 100) / 20); 
+        }
+    });
+
+    document.getElementById('rc-slider').addEventListener('input', (e) => {
+        rcValue = e.target.value / 1000;
+        document.getElementById('rc-val').innerText = rcValue.toFixed(3);
+    });
+
+    const freqBtns = document.querySelectorAll('.freq-btn');
+    freqBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            freqBtns.forEach(b => b.classList.remove('active-orange'));
+            if(e.target.dataset.freq !== "999") e.target.classList.add('active-orange');
+            
+            currentFreq = parseFloat(e.target.getAttribute('data-freq'));
+            document.getElementById('actuele-freq').innerText = currentFreq.toFixed(3) + " Hz";
+            logConsole(`Frequentie gewijzigd naar ${currentFreq} Hz`);
+            
+            if(oscBase) {
+                oscBase.frequency.setTargetAtTime(currentFreq, audioCtx.currentTime, 0.1);
+            }
+        });
+    });
+
+    document.getElementById('masterPowerBtn').addEventListener('click', (e) => {
+        if (!isAudioActive) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 1024;
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = Math.pow(10, (volumeDb - 100) / 20); 
+            
+            oscBase = audioCtx.createOscillator();
+            oscBase.type = 'triangle';
+            oscBase.frequency.value = currentFreq;
+            
+            oscBase.connect(masterGain);
+            masterGain.connect(analyser);
+            analyser.connect(audioCtx.destination);
+            
+            oscBase.start();
+            isAudioActive = true;
+            
+            e.target.innerText = "SYSTEEM ACTIEF - AUDIO AAN";
+            logConsole("Audio Node gestart. Resonantie actief.");
+        }
+    });
+
+    // --- Right Side (Grid & Console) ---
+    function logConsole(msg) {
+        const con = document.getElementById('console-log');
+        con.innerHTML += `<br><span class="console-highlight">> ${msg}</span>`;
+        con.scrollTop = con.scrollHeight;
+    }
+
+    // Populate Grid
+    const gridEl = document.getElementById('cubeGrid');
+    const chars = ['X', 'O', 'N', 'E', 'Λ', 'Y', 'Θ', 'P', 'И', 'Ǝ', 'A', 'I', 'Δ', 'Σ', 'M', 'Π', 'B', 'T', 'E', 'Y'];
+    
+    for(let i=0; i<80; i++) {
+        const div = document.createElement('div');
+        div.className = 'cube';
+        div.innerText = chars[Math.floor(Math.random() * chars.length)];
+        div.addEventListener('click', function() {
+            this.innerText = chars[Math.floor(Math.random() * chars.length)];
+            this.style.background = 'rgba(0, 229, 255, 0.4)';
+            setTimeout(() => { this.style.background = ''; }, 200);
+        });
+        gridEl.appendChild(div);
+    }
+</script>
+</body>
+</html>
