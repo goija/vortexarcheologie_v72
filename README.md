@@ -83,3 +83,4 @@ De flow luistert op het endpoint /vortex. Het fungeert als een "relais-station":
 
     Output: Broadcast deze data naar alle verbonden peers zodat de P2P-tunnel (v72) geopend kan worden zonder tussenkomst van een externe STUN/TURN server in een lokaal netwerk.
 
+
