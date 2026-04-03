@@ -60,11 +60,6 @@ python -m http.server 8000
 
 Dit project is gelicenseerd onder de MIT-licentie - zie het LICENSE bestand voor details.
 
-“De wiskunde is de adem van het verleden.”
-Tips voor je GitHub Profile:
-
-    Screenshots: Voeg de laatste v72 screenshots toe aan de map img/ en link ze in de README. Niets spreekt meer tot de verbeelding dan dat neon-blauwe grid.
-
     Live Demo: Als je Node-RED publiek toegankelijk maakt via een tunnel (zoals ngrok), kun je zelfs een live demo-link toevoegen.
 
     🌐 Node-RED Signaling Server
