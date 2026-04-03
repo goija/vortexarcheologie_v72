@@ -40,7 +40,7 @@ python -m http.server 8000
 
 3. De Verbinding Opzetten
 
-    Open http://localhost:8000/vortex_v72.html in twee tabbladen.
+    Open http://localhost:8000/vortexarcheologie_v72.html in twee tabbladen.
 
     Tab 1 (Zender): Selecteer je camera (bijv. Logitech C920) en klik op INITIALISEER CORE.
 
