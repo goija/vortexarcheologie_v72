@@ -1,0 +1,570 @@
+
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX KOSMISCHE CASCADE - ULTIMATE V72</title>
+    <style>
+        :root {
+            --bg: #020204;
+            --cyan: #00e5ff;
+            --orange: #ff9900;
+            --red: #ff3333;
+            --green: #39ff14;
+            --dark-cyan: #003333;
+            --panel-bg: rgba(0, 15, 20, 0.6);
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--cyan);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        h1, h2, h3 {
+            margin-top: 0;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            text-shadow: 0 0 5px var(--cyan);
+        }
+
+        h1 { color: var(--orange); text-shadow: 0 0 10px var(--orange); font-size: 1.5em; margin-bottom: 20px;}
+        h2 { font-size: 1.1em; border-bottom: 1px solid var(--dark-cyan); padding-bottom: 5px; }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            height: 100%;
+        }
+
+        .panel {
+            border: 1px solid var(--cyan);
+            background: var(--panel-bg);
+            padding: 15px;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.1);
+            overflow-y: auto;
+        }
+
+        /* --- Columns Setup --- */
+        .col-audio { flex: 1; min-width: 250px; }
+        .col-vortex { flex: 1.5; min-width: 300px; }
+        .col-scanner { flex: 1.2; min-width: 300px; border-left: 2px solid #111; padding-left: 15px; }
+        .col-cam { flex: 2; min-width: 400px; position: relative; background: #000; border: 1px solid #111; overflow: hidden; display: flex; align-items: center; justify-content: center;}
+
+        /* --- UI Elements --- */
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            border-bottom: 1px dashed var(--dark-cyan);
+            padding-bottom: 4px;
+        }
+        .value { color: var(--orange); font-weight: bold; }
+        .value-red { color: var(--red); font-weight: bold; }
+
+        button {
+            background: rgba(0, 229, 255, 0.05);
+            border: 1px solid var(--cyan);
+            color: var(--cyan);
+            padding: 10px;
+            cursor: pointer;
+            width: 100%;
+            font-family: inherit;
+            font-size: 12px;
+            text-transform: uppercase;
+            transition: 0.2s;
+            margin-bottom: 10px;
+        }
+        button:hover { background: var(--cyan); color: var(--bg); box-shadow: 0 0 10px var(--cyan); }
+        button.active-orange { background: var(--orange); border-color: var(--orange); color: var(--bg); box-shadow: 0 0 15px var(--orange); }
+        button.disabled { border-color: #555; color: #555; cursor: not-allowed; }
+        button.disabled:hover { background: transparent; color: #555; box-shadow: none; }
+
+        .btn-group { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap;}
+        .btn-group button { padding: 8px 0; font-size: 10px; flex: 1; min-width: 30%; margin-bottom: 5px;}
+
+        input[type="range"] { width: 100%; accent-color: var(--orange); margin: 10px 0; }
+        
+        select {
+            width: 100%;
+            background: #000;
+            color: var(--orange);
+            border: 1px solid var(--cyan);
+            padding: 8px;
+            font-family: inherit;
+            margin-bottom: 15px;
+            outline: none;
+        }
+
+        /* --- Canvases --- */
+        #renderCanvas {
+            background: #000;
+            border: 1px solid var(--red);
+            width: 100%;
+            height: 350px;
+            box-shadow: 0 0 15px rgba(255, 51, 51, 0.2) inset;
+            cursor: grab;
+            touch-action: none;
+        }
+        #renderCanvas:active { cursor: grabbing; }
+
+        /* --- Scanner LEDs --- */
+        .led-container { display: flex; justify-content: space-between; margin-bottom: 20px; padding: 0 10px;}
+        .led-box { text-align: center; font-size: 10px; border: 1px solid #333; padding: 5px 10px; border-radius: 3px; }
+        .led { width: 8px; height: 8px; border-radius: 50%; background: #333; margin: 0 auto 5px auto; transition: 0.3s; }
+        .led.on { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+        .console { margin-top: 15px; font-size: 10px; color: #aaa; line-height: 1.4; background: #000; padding: 10px; border: 1px solid #333; height: 120px; overflow-y: auto;}
+        .console-highlight { color: var(--green); }
+        .console-time { color: #555; }
+
+        /* --- AR Camera View --- */
+        #webcam-video {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            z-index: 1;
+            opacity: 0.7;
+            filter: contrast(1.2) grayscale(0.2);
+        }
+        
+        .ar-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 2;
+            perspective: 800px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ar-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 2px;
+            width: 80%;
+            height: 80%;
+            transform: rotateX(25deg) rotateY(-15deg) rotateZ(5deg);
+            transform-style: preserve-3d;
+        }
+
+        .ar-cell {
+            background: rgba(0, 50, 70, 0.4);
+            border: 1px solid rgba(0, 229, 255, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: var(--cyan);
+            font-weight: bold;
+            transition: 0.1s;
+        }
+        .ar-cell.active {
+            background: rgba(255, 153, 0, 0.6);
+            color: #fff;
+            border-color: var(--orange);
+            box-shadow: 0 0 10px var(--orange);
+        }
+        
+        /* Picture in picture thumbnail */
+        .pip-cam {
+            position: absolute;
+            top: 10px; left: 10px;
+            width: 120px; height: 90px;
+            border: 2px solid var(--green);
+            z-index: 3;
+            background: #000;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- COLUMN 1: Audio/Acoustics (V36 Legacy) -->
+    <div class="column col-audio">
+        <h1>[ VORTEX MASTER ]</h1>
+        <div class="panel">
+            <h2>1. AKOESTISCHE ENGINE</h2>
+            <button id="masterPowerBtn" class="active-orange">KLIK OM AUDIO TE STARTEN</button>
+            
+            <div style="margin-top: 10px;">
+                <span style="font-size: 10px;">HISTORISCHE GRONDFREQUENTIES</span>
+                <div class="btn-group">
+                    <button class="freq-btn" data-freq="110">110 HZ (PUTUTU)</button>
+                    <button class="freq-btn active-orange" data-freq="256">256 HZ (C)</button>
+                    <button class="freq-btn" data-freq="265">265 HZ (C#)</button>
+                    <button class="freq-btn" data-freq="285">285 HZ (D)</button>
+                    <button class="freq-btn" style="border-color: var(--red); color: var(--red);" data-freq="999">999 HZ</button>
+                </div>
+            </div>
+
+            <div style="margin-top: 15px;">
+                <div class="data-row"><span>Pututu Gain / Vol:</span> <span class="value" id="vol-val">73 dB</span></div>
+                <input type="range" id="vol-slider" min="0" max="100" value="73">
+                
+                <div class="data-row" style="margin-top:10px;"><span>LIDIT-fase (rc):</span> <span class="value-red" id="rc-val">5.753</span></div>
+                <input type="range" id="rc-slider" min="1000" max="15000" value="5753">
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>SYSTEEM PARAMETERS</h2>
+            <div class="data-row"><span>Actieve Freq:</span> <span class="value" id="actuele-freq">256.000 Hz</span></div>
+            <div class="data-row"><span>Cam Rotatie X:</span> <span class="value" id="cam-x">0.30</span></div>
+            <div class="data-row"><span>Cam Rotatie Y:</span> <span class="value" id="cam-y">0.00</span></div>
+        </div>
+    </div>
+
+    <!-- COLUMN 2: 3D Wireframe (V36 Legacy) -->
+    <div class="column col-vortex">
+        <div class="panel" style="height: 100%;">
+            <h2>[ 3D SCHELP: WIREFRAME ]</h2>
+            <canvas id="renderCanvas"></canvas>
+            <p style="font-size: 10px; color: #666; margin-top: 10px;">
+                Trek met de <b>muis</b> of gebruik <b>W A S D</b> om de spiraal te roteren. Gekoppeld aan de akoestische engine.
+            </p>
+        </div>
+    </div>
+
+    <!-- COLUMN 3: VORTEX V72 Scanner Panel -->
+    <div class="column col-scanner">
+        <div class="panel" style="height: 100%; border-color: #222; background: #010101;">
+            <h2 style="color: var(--cyan); border-bottom-color: #333;">VORTEX v72</h2>
+            <p style="font-size: 9px; color: #666; margin-top:-5px;">FIBERBOX PROTOCOL</p>
+            
+            <div class="led-container">
+                <div class="led-box"><div class="led on"></div>WSS</div>
+                <div class="led-box"><div class="led"></div>P2P</div>
+                <div class="led-box"><div class="led" id="led-cam"></div>CAM</div>
+                <div class="led-box"><div class="led on"></div>DATA</div>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label style="font-size: 10px; color: #888;">1. KIES JE CAMERA:</label>
+                <select id="camera-select">
+                    <option>Laden...</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="font-size: 10px; color: #888;">2. SYSTEEM ROL:</label>
+                <select>
+                    <option>VORTEX SCANNER (Zender + Cam)</option>
+                    <option>ONTVANGER (Mirror Mode)</option>
+                </select>
+            </div>
+
+            <button style="border-color: var(--cyan);" onclick="logConsole('Core Engine Initialized...')">3. INITIALISEER CORE</button>
+            <button style="border-color: var(--orange); color: var(--orange);" onclick="logConsole('Opening P2P Tunnel...')">4. OPEN P2P TUNNEL</button>
+            <button class="disabled" id="omniBtn">5. START OMNI-RESONANCE</button>
+
+            <div class="console" id="console-log">
+                <span class="console-time">[sys]</span> System loaded (Gecko Engine Optimized).<br>
+                <span class="console-time">[sys]</span> Hardware Lijst succesvol ingeladen.<br>
+            </div>
+        </div>
+    </div>
+
+    <!-- COLUMN 4: AR Camera View (V72 New) -->
+    <div class="column col-cam">
+        <!-- PIP Thumbnail mimicking the screenshot top-left -->
+        <video class="pip-cam" id="pip-video" autoplay playsinline muted></video>
+        
+        <!-- Main Background Video -->
+        <video id="webcam-video" autoplay playsinline muted></video>
+        
+        <!-- AR Perspective Grid Overlay -->
+        <div class="ar-overlay">
+            <div class="ar-grid" id="arGrid">
+                <!-- Cells injected via JS -->
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- 1. Audio & 3D Wireframe (V36 Logistics) ---
+    let audioCtx, masterGain, oscBase, analyser, dataArray;
+    let isAudioActive = false;
+    let currentFreq = 256;
+    let rcValue = 5.753;
+    let volumeDb = 73;
+    let time = 0;
+
+    // 3D Rotatie parameters
+    let rotX = 0.3; let rotY = 0.0;
+    let isDragging = false; let lastMouseX = 0; let lastMouseY = 0;
+
+    const canvas = document.getElementById('renderCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    function resizeCanvas() {
+        canvas.width = canvas.parentElement.clientWidth - 30;
+        canvas.height = 300;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Muis controls
+    canvas.addEventListener('pointerdown', (e) => { isDragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener('pointerup', (e) => { isDragging = false; canvas.releasePointerCapture(e.pointerId); });
+    canvas.addEventListener('pointermove', (e) => {
+        if (isDragging) {
+            rotY += (e.clientX - lastMouseX) * 0.01;
+            rotX -= (e.clientY - lastMouseY) * 0.01; 
+            lastMouseX = e.clientX; lastMouseY = e.clientY;
+            document.getElementById('cam-x').innerText = rotX.toFixed(2);
+            document.getElementById('cam-y').innerText = rotY.toFixed(2);
+        }
+    });
+
+    // WASD controls
+    window.addEventListener('keydown', (e) => {
+        const speed = 0.1;
+        if(e.key === 'w' || e.key === 'W') rotX += speed;
+        if(e.key === 's' || e.key === 'S') rotX -= speed;
+        if(e.key === 'a' || e.key === 'A') rotY -= speed;
+        if(e.key === 'd' || e.key === 'D') rotY += speed;
+        document.getElementById('cam-x').innerText = rotX.toFixed(2);
+        document.getElementById('cam-y').innerText = rotY.toFixed(2);
+    });
+
+    function drawWireframe() {
+        requestAnimationFrame(drawWireframe);
+        let rms = 0;
+        if (isAudioActive && analyser) {
+            analyser.getByteTimeDomainData(dataArray);
+            for (let i = 0; i < dataArray.length; i++) {
+                let val = (dataArray[i] - 128) / 128;
+                rms += val * val;
+            }
+            rms = Math.sqrt(rms / dataArray.length);
+        } else {
+            rms = 0.05 + Math.sin(time) * 0.02; 
+        }
+
+        const amplitudeMod = 1 + (volumeDb / 100) * 2 + (rms * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const cx = canvas.width / 2; const cy = canvas.height / 2;
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(255, 51, 51, ${0.4 + (rms * 2)})`; 
+        ctx.lineWidth = 1.5;
+
+        const rotSnelheid = currentFreq / 2000;
+        const fov = 400; const viewerDist = 200;
+        
+        for (let i = 0; i < 300; i++) {
+            const t = i * 0.08 + (time * rotSnelheid);
+            const basisRadius = 15 * amplitudeMod;
+            const R = basisRadius * rcValue + Math.sin(t * 2.5) * 40;
+            const r = 25 + Math.cos(t * 4) * 30;
+            
+            let originalX = Math.cos(t) * R + Math.cos(t * rcValue) * r;
+            let originalY = Math.sin(t) * R + Math.sin(t * rcValue) * r;
+            let originalZ = Math.sin(t * 1.5) * 100; 
+
+            let yRot = originalY * Math.cos(rotX) - originalZ * Math.sin(rotX);
+            let zRot = originalY * Math.sin(rotX) + originalZ * Math.cos(rotX);
+            let finalX = originalX * Math.cos(rotY) + zRot * Math.sin(rotY);
+            let finalZ = -originalX * Math.sin(rotY) + zRot * Math.cos(rotY);
+            let finalY = yRot;
+
+            let zScale = fov / (fov + finalZ + viewerDist);
+            if (zScale < 0) zScale = 0.01; 
+
+            const screenX = cx + finalX * zScale;
+            const screenY = cy + finalY * zScale;
+
+            if (i === 0) ctx.moveTo(screenX, screenY);
+            else ctx.lineTo(screenX, screenY);
+            
+            if (i % 6 === 0) {
+                let innerOx = Math.cos(t) * (R - r * 0.5);
+                let innerOy = Math.sin(t) * (R - r * 0.5);
+                let innerYRot = innerOy * Math.cos(rotX) - originalZ * Math.sin(rotX);
+                let innerZRot = innerOy * Math.sin(rotX) + originalZ * Math.cos(rotX);
+                let finalInnerX = innerOx * Math.cos(rotY) + innerZRot * Math.sin(rotY);
+                let finalInnerZ = -innerOx * Math.sin(rotY) + innerZRot * Math.cos(rotY);
+
+                let innerZScale = fov / (fov + finalInnerZ + viewerDist);
+                if (innerZScale < 0) innerZScale = 0.01;
+
+                ctx.moveTo(screenX, screenY);
+                ctx.lineTo(cx + finalInnerX * innerZScale, cy + innerYRot * innerZScale);
+            }
+        }
+        ctx.stroke();
+        time += 0.02;
+    }
+    drawWireframe();
+
+    // UI Audio Bindings
+    document.getElementById('vol-slider').addEventListener('input', (e) => {
+        volumeDb = e.target.value; document.getElementById('vol-val').innerText = volumeDb + " dB";
+        if(masterGain) masterGain.gain.value = Math.pow(10, (volumeDb - 100) / 20); 
+    });
+    document.getElementById('rc-slider').addEventListener('input', (e) => {
+        rcValue = e.target.value / 1000; document.getElementById('rc-val').innerText = rcValue.toFixed(3);
+    });
+
+    document.querySelectorAll('.freq-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.freq-btn').forEach(b => b.classList.remove('active-orange'));
+            e.target.classList.add('active-orange');
+            currentFreq = parseFloat(e.target.getAttribute('data-freq'));
+            document.getElementById('actuele-freq').innerText = currentFreq.toFixed(3) + " Hz";
+            if(oscBase) oscBase.frequency.setTargetAtTime(currentFreq, audioCtx.currentTime, 0.1);
+            logConsole(`Audio Freq Update -> ${currentFreq} Hz`);
+        });
+    });
+
+    document.getElementById('masterPowerBtn').addEventListener('click', (e) => {
+        if (!isAudioActive) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024;
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = Math.pow(10, (volumeDb - 100) / 20); 
+            
+            oscBase = audioCtx.createOscillator();
+            oscBase.type = currentFreq === 110 ? 'triangle' : 'sine'; // Warmer for pututu
+            oscBase.frequency.value = currentFreq;
+            
+            oscBase.connect(masterGain); masterGain.connect(analyser); analyser.connect(audioCtx.destination);
+            oscBase.start(); isAudioActive = true;
+            
+            e.target.innerText = "AUDIO ACTIEF";
+            document.getElementById('omniBtn').classList.remove('disabled');
+            document.getElementById('omniBtn').style.borderColor = 'var(--green)';
+            document.getElementById('omniBtn').style.color = 'var(--green)';
+            logConsole("Audio Context Ready. Resonance gestart.");
+        }
+    });
+
+    // --- 2. VORTEX V72 Scanner & AR Grid ---
+    function getTime() {
+        const d = new Date();
+        return `[${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}]`;
+    }
+
+    function logConsole(msg) {
+        const con = document.getElementById('console-log');
+        con.innerHTML += `<br><span class="console-time">${getTime()}</span> <span class="console-highlight">> ${msg}</span>`;
+        con.scrollTop = con.scrollHeight;
+    }
+
+    // Populate AR Grid (8x8 = 64 cells)
+    const arGrid = document.getElementById('arGrid');
+    const cells = [];
+    for(let i=0; i<64; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'ar-cell';
+        cell.innerText = Math.random() > 0.5 ? '1' : '0';
+        arGrid.appendChild(cell);
+        cells.push(cell);
+    }
+
+    // AR Grid Animation logic
+    setInterval(() => {
+        // Randomly flip some bits and highlight them
+        for(let i=0; i<5; i++) {
+            const idx = Math.floor(Math.random() * cells.length);
+            cells[idx].innerText = cells[idx].innerText === '1' ? '0' : '1';
+            cells[idx].classList.add('active');
+            setTimeout(() => cells[idx].classList.remove('active'), 300);
+        }
+    }, 200);
+
+    // Camera Access API
+    async function initCamera(deviceId) {
+        const constraints = {
+            video: deviceId ? { deviceId: { exact: deviceId } } : true
+        };
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            
+            // Set to main video
+            const video = document.getElementById('webcam-video');
+            video.srcObject = stream;
+            
+            // Set to PIP video
+            const pip = document.getElementById('pip-video');
+            pip.srcObject = stream;
+
+            document.getElementById('led-cam').classList.add('on');
+            
+            // Wait for video metadata to get resolution
+            video.onloadedmetadata = () => {
+                logConsole(`Camera actief. Resolutie: ${video.videoWidth}x${video.videoHeight}`);
+            };
+        } catch (err) {
+            logConsole("Camera toegang geweigerd of niet gevonden.");
+            document.getElementById('led-cam').classList.remove('on');
+        }
+    }
+
+    async function getCameras() {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            const select = document.getElementById('camera-select');
+            select.innerHTML = ''; // Clear loading
+            
+            if(videoDevices.length === 0) {
+                const opt = document.createElement('option');
+                opt.text = "Geen camera gevonden";
+                select.appendChild(opt);
+                logConsole("Geen hardware camera gedetecteerd.");
+                return;
+            }
+
+            videoDevices.forEach((device, index) => {
+                const option = document.createElement('option');
+                option.value = device.deviceId;
+                option.text = device.label || `Camera ${index + 1}`;
+                select.appendChild(option);
+            });
+
+            // Auto-start first camera
+            initCamera(videoDevices[0].deviceId);
+
+            // Handle selection change
+            select.addEventListener('change', (e) => {
+                initCamera(e.target.value);
+            });
+
+        } catch(err) {
+            logConsole("Fout bij laden hardware lijst.");
+        }
+    }
+
+    // Request permissions and list cameras on load
+    window.addEventListener('load', () => {
+        // Force prompt for permissions first
+        navigator.mediaDevices.getUserMedia({video: true})
+            .then(stream => {
+                // Instantly stop it, we just wanted permission to read the labels
+                stream.getTracks().forEach(track => track.stop());
+                getCameras();
+            })
+            .catch(err => {
+                logConsole("Camera permissie vereist voor Scanner functionaliteit.");
+            });
+    });
+
+</script>
+</body>
+</html>
