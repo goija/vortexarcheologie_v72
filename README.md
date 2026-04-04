@@ -83,4 +83,44 @@ De flow luistert op het endpoint /vortex. Het fungeert als een "relais-station":
 
     Output: Broadcast deze data naar alle verbonden peers zodat de P2P-tunnel (v72) geopend kan worden zonder tussenkomst van een externe STUN/TURN server in een lokaal netwerk.
 
+    Het lijkt erop dat je een nieuwe tunnel hebt gegenereerd of een nieuwe URL hebt gekregen via **Localtunnel** of een vergelijkbare service (zoals `breezy-words-run.loca.lt`).
+
+In de context van je **Vortex Master** interface en de I Ching-symbolen die je stuurde, is "Breezy" (Winderig) ook een directe link naar het hexagram **Sun (Het Zachte / De Wind)**.
+
+### Wat moet je nu doen met "Breezy"?
+
+1.  **De Tunnel checken:** Als dit je nieuwe Localtunnel-subdomein is, open dan op je Android:
+    `https://breezy-XXXX-XXXX.loca.lt` (vul de volledige URL aan die je in je terminal ziet).
+2.  **P2P Probleem:** Zoals ik eerder schreef: Localtunnel is soms te "breezy" (vluchtig) voor P2P. Als de verbinding op je Android nog steeds niet werkt:
+    * Klik op de blauwe knop **"Click to Continue"** die Localtunnel altijd eerst laat zien.
+    * Zorg dat je server op je PC draait op poort **8000**.
+
+### De I Ching link
+Het hexagram voor Wind/Breezy (Sun) staat voor **indringing**. Net zoals de wind overal doorheen dringt, probeert jouw tunnel door de firewall en het netwerk heen te dringen naar je Android-toestel.
+
+> **Tip:** Als de P2P-status in je Vortex-scherm nog steeds op rood blijft staan, probeer dan je Android-telefoon via USB aan te sluiten en gebruik de Chrome Desktop "Port Forwarding" tool. Dat is de meest solide "windstille" verbinding die er is.
+
+Is "Breezy" de naam van je nieuwe tunnel, of is het een commando dat je in je Vortex-systeem wilt gebruiken?
+
+Symbool,Nummer,Naam (Chinees),Betekenis
+䷐,17,Suí,Navolging
+䷤,37,Jiā Rén,De Familie
+䷭,46,Shēng,Omhoogstappen / Groei
+䷔,21,Shì Kè,Doorbijten
+䷓,20,Guān,De Beschouwing / Het Bekijken
+䷅,6,Sòng,Het Conflict / De Twist
+䷈,8,Bǐ,Het Samengaan / Eenheid
+䷭,46,Shēng,Omhoogstappen / Groei
+䷕,22,Bì,De Lieflijkheid / Sfeer
+䷔,21,Shì Kè,Doorbijten
+䷝,30,Lí,Het Hechtende / Vuur
+䷂,3,Zhūn,De Beginmoeilijkheid
+䷐,17,Suí,Navolging
+䷓,20,Guān,De Beschouwing
+䷜,29,Kǎn,Het Onpeilbare / Water
+䷠,33,Dùn,De Terugtocht
+
+䷐䷤䷭䷔䷓䷅䷈䷭䷕䷔䷝䷂䷐䷓䷜䷠
+BKTLR-UGBA7 
+
 
