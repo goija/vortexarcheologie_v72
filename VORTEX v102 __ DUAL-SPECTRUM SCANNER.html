@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="nl"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX v102 // DUAL-SPECTRUM SCANNER</title>
+    <style>
+        :root { 
+            --cyan: #00d2ff; --magenta: #ff00ff; --amber: #ffbf00; 
+            --emerald: #00ea69; --danger: #ff0033; --bg: #010102; 
+            --panel: #06070a; --stone: #111; --marsoulas: #b35900;
+        }
+        
+        body { background: var(--bg); color: #fff; font-family: 'Courier New', monospace; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        #bootScreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(1, 1, 2, 0.95); display: flex; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(10px); }
+        .btn-boot { background: transparent; border: 2px solid var(--cyan); color: var(--cyan); padding: 20px 40px; font-size: 24px; font-family: inherit; font-weight: bold; cursor: pointer; letter-spacing: 4px; transition: 0.3s; text-transform: uppercase; box-shadow: 0 0 20px rgba(0, 210, 255, 0.2); }
+        .btn-boot:hover { background: var(--cyan); color: #000; box-shadow: 0 0 50px rgba(0, 210, 255, 0.8); }
+        .dashboard { background: var(--panel); border: 1px solid #333; padding: 20px; width: 100%; max-width: 1550px; display: grid; grid-template-columns: 320px 1fr 380px; gap: 20px; box-shadow: 0 0 50px rgba(0, 210, 255, 0.05); filter: blur(4px); transition: 0.5s filter; }
+        .header { grid-column: span 3; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 15px; }
+        .header-titles h1 { margin: 0; color: var(--cyan); letter-spacing: 5px; font-size: 24px; }
+        .controls { display: flex; gap: 10px; }
+        .btn-play { background: #000; border: 1px solid var(--emerald); color: var(--emerald); padding: 10px 20px; font-size: 14px; font-family: inherit; font-weight: bold; cursor: pointer; letter-spacing: 2px; transition: 0.3s; }
+        .btn-play.paused { border-color: var(--amber); color: var(--amber); }
+        .panel-col { display: flex; flex-direction: column; gap: 15px; }
+        .card { background: #000; border: 1px solid #222; padding: 15px; position: relative; }
+        .card::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--stone); }
+        .card.active-magenta::before { background: var(--magenta); }
+        .card.active-amber::before { background: var(--amber); }
+        .card.active-emerald::before { background: var(--emerald); }
+        .card.active-cyan::before { background: var(--cyan); }
+        .label { font-size: 10px; color: #666; text-transform: uppercase; margin-bottom: 5px; }
+        .value { font-size: 20px; font-weight: bold; color: #fff; }
+        .sub { font-size: 11px; color: #888; }
+        .canvas-container { background: #000; border: 1px solid #222; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        .overlay-label { position: absolute; top: 10px; left: 10px; z-index: 10; font-size: 10px; font-weight: bold; background: rgba(0,0,0,0.7); padding: 5px; border: 1px solid; }
+        input.ws-box { width: 100%; height: 35px; background: #050505; border: 1px solid #333; color: var(--cyan); font-family: 'Courier New', monospace; font-size: 11px; padding: 5px; box-sizing: border-box; outline: none; margin-bottom: 5px; }
+        .btn-ws { background: #111; color: var(--cyan); border: 1px solid var(--cyan); padding: 10px; width: 100%; cursor: pointer; font-family: inherit; font-size: 11px; font-weight: bold; transition: 0.2s; }
+        input[type="file"] { background: #111; color: var(--cyan); border: 1px solid #333; padding: 10px; width: 100%; font-size: 10px; margin-bottom: 10px; }
+        .terminal { background: #000; border: 1px solid #222; padding: 10px; font-size: 10px; color: #777; height: 120px; overflow-y: auto; line-height: 1.4; }
+        .highlight-emerald { color: var(--emerald); font-weight: bold;}
+    </style>
+</head>
+<body>
+
+    <div id="bootScreen" style="display: none;">
+        <button class="btn-boot" onclick="bootSystem()">BOOT VORTEX v102</button>
+    </div>
+
+    <div class="dashboard" id="dashboard" style="filter: none;">
+        <div class="header">
+            <div class="header-titles">
+                <h1>VORTEX v102 // DUAL-SPECTRUM SCANNER</h1>
+                <div style="font-size: 11px; color: #666; margin-top: 5px;">CHROMATIC LUMINANCE MAPPING . SONARNET SYNC . MARSOULAS ENGINE</div>
+            </div>
+            <div class="controls">
+                <button id="btnPlay" class="btn-play" onclick="togglePlayback()">▌▌ PAUZE SCAN</button>
+            </div>
+        </div>
+
+        <div class="panel-col">
+            <div class="card active-cyan" style="padding: 10px;">
+                <div class="label" style="color: var(--cyan);">SONARNET UPLINK</div>
+                <input type="text" id="wsUrl" class="ws-box" value="ws://127.0.0.1:1880/ws/vortex">
+                <button class="btn-ws" onclick="connectSonarNet()">VERBIND MET SONARNET</button>
+                <div class="sub" style="margin-top:5px;">Status: <span id="wsStatus" style="color: var(--emerald);">CONNECTED</span></div>
+            </div>
+
+            <div class="card active-magenta">
+                <div class="label">Mersenne Node</div>
+                <div class="value" id="valNode">0</div>
+                <div class="sub">Deep Space Resonator</div>
+            </div>
+            
+            <div class="card active-amber">
+                <div class="label">Luminantie Spectrum</div>
+                <div class="value" id="valLum" style="color:var(--amber);">0%</div>
+                <div id="hebLetter" style="font-size:30px; color:var(--amber); float:right;">א</div>
+            </div>
+        </div>
+
+        <div class="panel-col">
+            <div class="canvas-container" style="height: 520px;">
+                <div class="overlay-label" style="color: var(--cyan); border-color: var(--cyan);">SONARNET RADAR</div>
+                <canvas id="sonarCanvas" width="311" height="520"></canvas>
+            </div>
+        </div>
+
+        <div class="panel-col">
+            <div class="card active-emerald" style="padding: 10px;">
+                <div class="label" style="color: var(--emerald);">DUAL-SPECTRUM INPUT</div>
+                <input type="file" id="imageUpload" accept="image/*">
+                <div class="canvas-container" style="height: 200px; border-color: var(--emerald);">
+                    <div class="overlay-label" style="color: var(--emerald);">CHROMATIC SCANNER</div>
+                    <canvas id="imageCanvas" width="356" height="200"></canvas>
+                </div>
+            </div>
+
+            <div class="terminal" id="terminalLog">&gt; VORTEX v102 OS Online.<br>&gt; Wachten op v102 initiatie...</div>
+        </div>
+    </div>
+
+<script>
+    const heb = ['א','ב','ג','ד','ה','ו','ז','ח','ט','י','כ','ל','מ','נ','ס','ע','פ','צ','ק','ר','ש','ת'];
+    const names = ['Alef','Bet','Giemel','Dalet','He','Waw','Zajien','Chet','Tet','Jod','Kaf','Lamed','Mem','Noen','Samech','Ajien','Pe','Tsade','Kof','Resj','Sjien','Taw'];
+    let audioCtx, mainGain, marsoulasReverb, lookaheadTimer;
+    let nextScanTime = 0, isPlaying = false, syncQueue = [], activeRipples = [];
+    let imgData = null, scanX = 0, scanStep = 2, sonarnetWS = null, isConnected = false;
+
+    const sonarCanvas = document.getElementById('sonarCanvas'), sCtx = sonarCanvas.getContext('2d');
+    const imageCanvas = document.getElementById('imageCanvas'), iCtx = imageCanvas.getContext('2d');
+
+    function resizeCanvases() {
+        sonarCanvas.width = sonarCanvas.parentElement.clientWidth; sonarCanvas.height = sonarCanvas.parentElement.clientHeight;
+        imageCanvas.width = imageCanvas.parentElement.clientWidth; imageCanvas.height = imageCanvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    document.getElementById('imageUpload').addEventListener('change', function(e) {
+        if (!e.target.files.length) return;
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() {
+                iCtx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+                const ratio = Math.min(imageCanvas.width/img.width, imageCanvas.height/img.height);
+                iCtx.drawImage(img, 0, 0, img.width, img.height, (imageCanvas.width-img.width*ratio)/2, (imageCanvas.height-img.height*ratio)/2, img.width*ratio, img.height*ratio);
+                imgData = iCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+                scanX = 0; logTerminal("<span style='color:var(--emerald)'>Spectrum Dataset Geladen.</span>");
+            }
+            img.src = event.target.result;
+        }
+        reader.readAsDataURL(e.target.files[0]);
+    });
+
+    function createMarsoulasReverb() {
+        let rate = audioCtx.sampleRate, length = rate * 3.5, impulse = audioCtx.createBuffer(2, length, rate);
+        for(let c=0; c<2; c++) {
+            let data = impulse.getChannelData(c);
+            for(let i=0; i<length; i++) data[i] = (Math.random()*2-1) * Math.pow(1-i/length, 3);
+        }
+        let conv = audioCtx.createConvolver(); conv.buffer = impulse; return conv;
+    }
+
+    async function bootSystem() {
+        document.getElementById('bootScreen').style.display = 'none'; document.getElementById('dashboard').style.filter = 'none';
+        resizeCanvases();
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        marsoulasReverb = createMarsoulasReverb();
+        mainGain = audioCtx.createGain(); mainGain.gain.value = 0.4;
+        const comp = audioCtx.createDynamicsCompressor();
+        mainGain.connect(marsoulasReverb); marsoulasReverb.connect(comp); mainGain.connect(comp); comp.connect(audioCtx.destination);
+        if(audioCtx.state === 'suspended') await audioCtx.resume();
+        isPlaying = true; logTerminal("VORTEX v102 OS Online.");
+        nextScanTime = audioCtx.currentTime + 0.5; audioScheduler(); requestAnimationFrame(renderLoop);
+    }
+
+    function connectSonarNet() {
+        let url = document.getElementById('wsUrl').value;
+        try {
+            sonarnetWS = new WebSocket(url);
+            sonarnetWS.onopen = () => { isConnected = true; document.getElementById('wsStatus').innerText = "CONNECTED"; document.getElementById('wsStatus').style.color = "var(--emerald)"; };
+            sonarnetWS.onmessage = (e) => {
+                const d = JSON.parse(e.data);
+                if(d.type === 'vortex_trigger') {
+                    triggerPututu(d.freq, d.q, d.decay, audioCtx.currentTime, d.node);
+                    syncQueue.push({ time: audioCtx.currentTime, node: d.node, freq: d.freq, isLocal: false });
+                }
+            };
+            sonarnetWS.onclose = () => { isConnected = false; document.getElementById('wsStatus').innerText = "OFFLINE"; };
+        } catch(e) { logTerminal("WebSocket Error."); }
+    }
+
+    function audioScheduler() {
+        if(isPlaying) {
+            while(nextScanTime < audioCtx.currentTime + 0.1) {
+                let node = 0, avgLum = 0;
+                if(imgData) {
+                    let sum = 0, count = 0;
+                    for(let y=0; y<imageCanvas.height; y+=4) {
+                        let i = (y*imageCanvas.width + scanX)*4;
+                        if(imgData.data[i+3] > 0) {
+                            sum += (0.299*imgData.data[i] + 0.587*imgData.data[i+1] + 0.114*imgData.data[i+2]);
+                            count++;
+                        }
+                    }
+                    avgLum = count > 0 ? sum/count : 0;
+                    node = Math.floor((avgLum/255)*52);
+                    scanX = (scanX + scanStep) % imageCanvas.width;
+                }
+                const freq = 110 * Math.pow(2, node/41), q = 40 + node*5;
+                if(avgLum > 2) {
+                    triggerPututu(freq, q, 0.15, nextScanTime, node);
+                    if(isConnected) sonarnetWS.send(JSON.stringify({type:'vortex_trigger', freq, q, decay:0.15, node}));
+                }
+                syncQueue.push({ time: nextScanTime, node, freq, isLocal: true, lum: avgLum });
+                nextScanTime += 0.2;
+            }
+        }
+        lookaheadTimer = setTimeout(audioScheduler, 25);
+    }
+
+    function triggerPututu(f, q, d, t, n) {
+        const osc = audioCtx.createOscillator(), fil = audioCtx.createBiquadFilter(), g = audioCtx.createGain();
+        fil.type = "bandpass"; fil.frequency.value = f; fil.Q.value = q;
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(n > 40 ? 0.8 : 0.4, t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + d);
+        osc.type = n > 40 ? "square" : "sawtooth"; osc.frequency.value = f/2;
+        osc.connect(fil); fil.connect(g); g.connect(mainGain);
+        osc.start(t); osc.stop(t + d + 0.5);
+    }
+
+    function renderLoop() {
+        const now = audioCtx ? audioCtx.currentTime : 0;
+        while(syncQueue.length > 0 && syncQueue[0].time <= now) {
+            let e = syncQueue.shift();
+            document.getElementById('valNode').innerText = e.node;
+            if(e.isLocal) {
+                document.getElementById('valLum').innerText = Math.floor((e.lum/255)*100) + "%";
+                document.getElementById('hebLetter').innerText = heb[Math.floor(e.lum/12) % 22];
+            }
+            activeRipples.push({ r: 10, maxR: sonarCanvas.width, speed: 4 + e.freq/150, alpha: 0.8, color: e.isLocal ? '0, 234, 105' : '0, 210, 255' });
+        }
+        sCtx.fillStyle = "rgba(1, 1, 2, 0.3)"; sCtx.fillRect(0, 0, sonarCanvas.width, sonarCanvas.height);
+        for(let i=1; i<6; i++) { sCtx.strokeStyle = "#111"; sCtx.beginPath(); sCtx.arc(sonarCanvas.width/2, sonarCanvas.height/2, i*60, 0, Math.PI*2); sCtx.stroke(); }
+        for(let i=activeRipples.length-1; i>=0; i--) {
+            let rip = activeRipples[i]; rip.r += rip.speed; rip.alpha -= 0.015;
+            if(rip.alpha <= 0) activeRipples.splice(i, 1);
+            else { sCtx.strokeStyle = `rgba(${rip.color}, ${rip.alpha})`; sCtx.beginPath(); sCtx.arc(sonarCanvas.width/2, sonarCanvas.height/2, rip.r, 0, Math.PI*2); sCtx.stroke(); }
+        }
+        if(imgData) { iCtx.putImageData(imgData, 0, 0); iCtx.strokeStyle = "red"; iCtx.beginPath(); iCtx.moveTo(scanX, 0); iCtx.lineTo(scanX, imageCanvas.height); iCtx.stroke(); }
+        requestAnimationFrame(renderLoop);
+    }
+
+    function togglePlayback() { isPlaying = !isPlaying; document.getElementById('btnPlay').innerText = isPlaying ? "▌▌ PAUZE SCAN" : "▶ START SCAN"; }
+    function logTerminal(m) { document.getElementById('terminalLog').innerHTML = "> " + m + "<br>" + document.getElementById('terminalLog').innerHTML; }
+</script>
+
+</body></html>
