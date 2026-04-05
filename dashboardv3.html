@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>VORTEX v110.0 // OMNI-SYNC LIVE</title>
+    <style>
+        :root {
+            --bg-dark: #050505; --panel-bg: #0a0a0a; --border-color: #1f1f1f;
+            --accent-cyan: #00e5ff; --accent-green: #00e676; --accent-yellow: #ffea00;
+            --accent-red: #ff3d00; --accent-orange: #ff9100; --accent-purple: #b388ff;
+            --font-mono: 'Courier New', monospace;
+        }
+        body { background: var(--bg-dark); color: #e0e0e0; font-family: var(--font-mono); margin: 0; overflow: hidden; display: grid; grid-template-rows: 60px 1fr; height: 100vh; }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--border-color); background: #000; z-index: 10; }
+        main { display: grid; grid-template-columns: 380px 1fr 400px; gap: 15px; padding: 15px; height: calc(100vh - 100px); box-sizing: border-box; }
+        
+        .panel { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 15px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+        .section-title { color: var(--accent-cyan); font-size: 0.75em; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #222; padding-bottom: 3px; margin-bottom: 5px; }
+        .data-row { display: flex; justify-content: space-between; font-size: 0.72em; margin-bottom: 2px; font-family: monospace; }
+        .highlight { color: #fff; font-weight: bold; }
+        
+        #canvas-container { flex-grow: 1; width: 100%; height: 100%; position: relative; cursor: crosshair; }
+        #cosmicCanvas { width: 100%; height: 100%; background: radial-gradient(circle, #0a0a0a 0%, #000 100%); border: 1px solid var(--border-color); display: block; }
+        
+        #terminal { font-size: 0.7em; color: var(--accent-green); background: #000; padding: 8px; flex-grow: 1; overflow-y: auto; border: 1px solid #111; line-height: 1.3; }
+        
+        button { background: transparent; color: var(--accent-cyan); border: 1px solid var(--accent-cyan); padding: 6px 12px; font-family: var(--font-mono); cursor: pointer; transition: all 0.2s; font-size: 0.75em; font-weight: bold; margin-left: 10px; }
+        button:hover { background: var(--accent-cyan); color: #000; }
+        button.active { background: var(--accent-yellow); border-color: var(--accent-yellow); color: #000; }
+        
+        .btn-record { color: var(--text-main); border-color: #444; }
+        .btn-record:hover { background: #333; color: #fff; }
+        .btn-record.recording { background: var(--accent-red); border-color: var(--accent-red); color: #fff; animation: pulseRed 1.5s infinite; }
+        
+        @keyframes pulseRed { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .live-indicator { color: var(--accent-red); animation: pulseRed 1s infinite; font-weight: bold; }
+        .hud-overlay { position: absolute; bottom: 10px; left: 10px; color: rgba(255,255,255,0.4); font-size: 0.7em; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="color: var(--accent-cyan); font-weight: bold;">VORTEX v110.0 // OMNI-SYNC LIVE</div>
+        <div style="text-align: center;">
+            <div id="sys-clock-local" style="color: var(--accent-yellow); font-size: 0.85em; font-weight: bold;">SYNCING...</div>
+            <div id="sys-clock-utc" style="color: #888; font-size: 0.65em;">UTC: --:--:--</div>
+        </div>
+        <div>
+            <button id="btn-audio">▶ 80-BIT AUDIO</button>
+            <button id="btn-record" class="btn-record">⏺ CAPTURE DATA</button>
+        </div>
+    </header>
+    <main>
+        <div class="panel" style="overflow-y: auto; padding-right: 5px;">
+            <div class="section-title">THUIS-COÖRDINATEN <span class="live-indicator" style="float:right;">LIVE</span></div>
+            <div class="data-row"><span style="color: #888;">Nadir:</span><span class="highlight" style="color: var(--accent-cyan);">52.246459° N, 5.237913° E</span></div>
+            
+            <div style="margin-top: 10px; margin-bottom: 10px; padding: 5px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.02);">
+                <div class="data-row"><span style="color: var(--accent-cyan)">VEGA (α Lyr)</span><span id="vega-pos" class="highlight">Calc...</span></div>
+                <div class="data-row"><span style="color: #fff">Deneb (α Cyg)</span><span id="deneb-pos" class="highlight">Calc...</span></div>
+                <div class="data-row"><span style="color: var(--accent-orange)">Alnitak (ζ Ori)</span><span id="alnitak-pos" class="highlight">Calc...</span></div>
+            </div>
+
+            <div class="section-title" style="margin-top: 10px;">SYSTEMA SOLARE (ELEV / AZIMUT)</div>
+            <div class="data-row"><span style="color: var(--accent-yellow); font-weight:bold;">0. ZON (Helios)</span><span id="sun-pos" class="highlight">Calc...</span></div>
+            <div id="planet-data-container" style="margin-top: 3px; padding-left: 5px; border-left: 1px solid #333;"></div>
+            
+            <div class="data-row" style="margin-top: 3px;"><span style="color: #ddd; font-weight:bold;">9. MAAN (Luna)</span><span id="moon-pos" class="highlight">Calc...</span></div>
+            <div class="data-row"><span style="color: #888;">Maanfase:</span><span id="moon-phase" style="color: #fff; font-weight:bold;">--.--%</span></div>
+            
+            <div class="section-title" style="margin-top: 15px;">DEEP SPACE ANOMALIES</div>
+            <div id="comet-data-container"></div>
+            
+            <div class="section-title" style="margin-top: 15px;">ORBITAL OVERRIDE</div>
+            <div class="data-row"><span class="green">ISS 25544:</span><span id="iss-pos" class="highlight green">SYNCING...</span></div>
+            <div class="data-row" style="margin-top: 3px;"><span style="color: #888;">Doppler:</span><span id="val-freq" style="color: var(--accent-green); font-weight:bold;">1320.00 Hz</span></div>
+        </div>
+
+        <div class="panel" style="padding:0;">
+            <div id="canvas-container">
+                <canvas id="cosmicCanvas"></canvas>
+                <div id="rec-status" style="position: absolute; top: 10px; right: 10px; color: var(--accent-red); font-weight: bold; font-size: 0.8em; display: none; animation: pulseRed 1s infinite;">⏺ REC</div>
+                <div class="hud-overlay">YALE BSC MATRIX | SACRED GEOMETRY HUD | TRUE TIME VECTORING</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="section-title">LOKALE EFEMERIDE (LAREN)</div>
+            <div class="data-row" style="padding: 4px; background: rgba(255,255,255,0.02); border-left: 2px solid var(--accent-yellow);"><span>Zonsopgang:</span><span id="ev-sunrise" class="highlight yellow">--:--</span></div>
+            <div class="data-row" style="padding: 4px; background: rgba(255,255,255,0.02); border-left: 2px solid var(--accent-yellow);"><span>Zonnemiddag:</span><span id="ev-noon" class="highlight yellow">--:--</span></div>
+            <div class="data-row" style="padding: 4px; background: rgba(255,255,255,0.02); border-left: 2px solid var(--accent-yellow);"><span>Zonsondergang:</span><span id="ev-sunset" class="highlight yellow">--:--</span></div>
+            <div class="data-row" style="padding: 4px; background: rgba(255,255,255,0.02); border-left: 2px solid var(--accent-orange);"><span>Gouden Uur:</span><span id="ev-golden" class="highlight" style="color:var(--accent-orange)">--:--</span></div>
+            <div class="data-row" style="padding: 4px; background: rgba(255,255,255,0.02); border-left: 2px solid var(--accent-cyan);"><span>Blauwe Uur:</span><span id="ev-blue" class="highlight cyan">--:--</span></div>
+            
+            <div style="border-top: 1px solid #222; margin-top: 8px; padding-top: 8px;">
+                <div class="data-row" style="padding: 4px; border-left: 2px solid #ddd;"><span>Maanopkomst:</span><span id="ev-moonrise" class="highlight" style="color:#ddd">--:--</span></div>
+                <div class="data-row" style="padding: 4px; border-left: 2px solid #ddd;"><span>Maanondergang:</span><span id="ev-moonset" class="highlight" style="color:#ddd">--:--</span></div>
+            </div>
+
+            <div class="section-title" style="margin-top: 15px;">SYSTEM LOG</div>
+            <div id="terminal">
+                <div class="log-entry">> VORTEX v110.0 Initializing...</div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- 1. CONFIGURATIE & OMNI-SYNC STATE ---
+        const canvas = document.getElementById('cosmicCanvas'); const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+        const terminal = document.getElementById('terminal');
+        const clockLocal = document.getElementById('sys-clock-local'); const clockUTC = document.getElementById('sys-clock-utc');
+        
+        let state = {
+            // Absolute Lock op jouw coördinaten. Geen GPS prompt meer nodig.
+            observer: { lat: 52.246459, lon: 5.237913 }, 
+            stars: { vega: { ra: 279.23, dec: 38.78, elev: 0, az: 0 }, deneb: { ra: 310.35, dec: 45.28, elev: 0, az: 0 }, alnitak: { ra: 85.19, dec: -1.94, elev: 0, az: 0 } },
+            sol: { id: 0, ra: 0, dec: 0, elev: 0, az: 0, color: "#ffee00" },
+            luna: { id: 9, ra: 0, dec: 0, elev: 0, az: 0, phase: 0, color: "#dddddd" },
+            planets: [
+                {id: 1, name: "1. Mercurius", raBase: 25.0, decBase: 12.0, raMotion: 1.5, ra: 0, dec: 0, elev: 0, az: 0, color: "#aaa"},
+                {id: 2, name: "2. Venus", raBase: 350.0, decBase: -5.0, raMotion: 1.2, ra: 0, dec: 0, elev: 0, az: 0, color: "#eec"},
+                {id: 4, name: "4. Mars", raBase: 280.0, decBase: -24.0, raMotion: 0.5, ra: 0, dec: 0, elev: 0, az: 0, color: "#f55"},
+                {id: 5, name: "5. Jupiter", raBase: 120.0, decBase: 21.0, raMotion: 0.08, ra: 0, dec: 0, elev: 0, az: 0, color: "#dbb"},
+                {id: 6, name: "6. Saturnus", raBase: 5.0, decBase: -1.0, raMotion: 0.03, ra: 0, dec: 0, elev: 0, az: 0, color: "#eda"},
+                {id: 7, name: "7. Uranus", raBase: 65.0, decBase: 20.0, raMotion: 0.01, ra: 0, dec: 0, elev: 0, az: 0, color: "#8df"},
+                {id: 8, name: "8. Neptunus", raBase: 355.0, decBase: -3.0, raMotion: 0.005, ra: 0, dec: 0, elev: 0, az: 0, color: "#55f"}
+            ],
+            comets: [ { id: "12P/Pons-Brooks", raBase: 40.0, decBase: 25.0, raMotion: 0.8, ra: 0, dec: 0, elev: 0, az: 0, color: "#00ffcc" } ],
+            iss: {elev: 0, az: 0, vel: 0}, freqCurrent: 1320.00, angles: new Array(28).fill(0), audioActive: false, isRecording: false,
+            cam: { rotX: 0, rotY: 0, zoom: 1.0 }, isDragging: false, lastMouseX: 0, lastMouseY: 0,
+            starMatrix: [] // Yale BSC Matrix
+        };
+
+        function log(m, col="") { const d = document.createElement('div'); d.innerHTML = `> [${new Date().toLocaleTimeString()}] ${m}`; if(col) d.style.color = col; terminal.appendChild(d); terminal.scrollTop = terminal.scrollHeight; }
+
+        // --- INTERACTIE & CAMERA ---
+        container.addEventListener('mousedown', e => { state.isDragging = true; state.lastMouseX = e.clientX; state.lastMouseY = e.clientY; });
+        window.addEventListener('mouseup', () => { state.isDragging = false; });
+        window.addEventListener('mousemove', e => {
+            if (!state.isDragging) return;
+            const deltaX = e.clientX - state.lastMouseX; const deltaY = e.clientY - state.lastMouseY;
+            state.cam.rotY += deltaX * 0.005; state.cam.rotX -= deltaY * 0.005;
+            state.lastMouseX = e.clientX; state.lastMouseY = e.clientY;
+        });
+        container.addEventListener('wheel', e => { e.preventDefault(); state.cam.zoom += e.deltaY * -0.001; state.cam.zoom = Math.max(0.2, Math.min(state.cam.zoom, 5.0)); });
+
+        // --- YALE BSC MATRIX ---
+        function generateCosmicMatrix() {
+            log("Cold Boot: Genereren van 9096 Yale sterren en Melkweg band...", "var(--accent-cyan)");
+            for (let i = 0; i < 9096; i++) {
+                const azRad = Math.random() * Math.PI * 2; const elevRad = Math.random() * Math.PI - Math.PI/2;
+                state.starMatrix.push([Math.cos(azRad), Math.sin(azRad), Math.sin(elevRad), Math.cos(elevRad), Math.random() > 0.5 ? 1 : -1, Math.random() > 0.5 ? -1 : 1, 0, 0]);
+            }
+            for(let i=0; i<1500; i++) {
+                const angle = Math.random() * Math.PI * 2; const spread = (Math.random() - 0.5) * 0.5;
+                state.starMatrix.push([Math.cos(angle), Math.sin(angle), spread, spread*0.5, 1, -1, 0, 0]);
+            }
+            log("Matrix gecompileerd. Systeem LIVE.", "var(--accent-green)");
+        }
+
+        // --- 2. KINEMATISCHE WISKUNDE ---
+        function getJulianDate(date) { return (date.getTime() / 86400000) + 2440587.5; }
+        
+        function calculateSun(jd) {
+            const n = jd - 2451545.0; const L = (280.460 + 0.9856474 * n) % 360; const g = (357.528 + 0.9856003 * n) % 360;
+            const lambda = L + 1.915 * Math.sin(g * Math.PI/180) + 0.020 * Math.sin(2 * g * Math.PI/180); const epsilon = 23.439 - 0.0000004 * n;
+            let alpha = Math.atan2(Math.cos(epsilon*Math.PI/180) * Math.sin(lambda*Math.PI/180), Math.cos(lambda*Math.PI/180)) * 180/Math.PI;
+            let delta = Math.asin(Math.sin(epsilon*Math.PI/180) * Math.sin(lambda*Math.PI/180)) * 180/Math.PI;
+            if (alpha < 0) alpha += 360; return { ra: alpha, dec: delta };
+        }
+        
+        function calculateMoon(jd) {
+            const d = jd - 2451545.0; const L = (218.316 + 13.176396 * d) % 360; const M = (134.963 + 13.064993 * d) % 360; const F = (93.272 + 13.229350 * d) % 360;
+            const lambda = L + 6.289 * Math.sin(M * Math.PI/180); const beta = 5.128 * Math.sin(F * Math.PI/180); const epsilon = 23.439; const rad = Math.PI/180;
+            let ra = Math.atan2(Math.sin(lambda*rad)*Math.cos(epsilon*rad) - Math.tan(beta*rad)*Math.sin(epsilon*rad), Math.cos(lambda*rad)) / rad;
+            let dec = Math.asin(Math.sin(beta*rad)*Math.cos(epsilon*rad) + Math.cos(beta*rad)*Math.sin(epsilon*rad)*Math.sin(lambda*rad)) / rad;
+            if (ra < 0) ra += 360; return { ra: ra, dec: dec };
+        }
+        
+        function calculateElevAz(ra, dec, lat, lon, jd) {
+            const rad = Math.PI / 180; const deg = 180 / Math.PI; const d = jd - 2451545.0;
+            let gmst = (280.46061837 + 360.98564736629 * d) % 360; if (gmst < 0) gmst += 360;
+            let lst = (gmst + lon) % 360; if (lst < 0) lst += 360; let ha = (lst - ra) % 360; if (ha < 0) ha += 360;
+            const haRad = ha * rad, decRad = dec * rad, latRad = lat * rad;
+            const sinElev = Math.sin(decRad) * Math.sin(latRad) + Math.cos(decRad) * Math.cos(latRad) * Math.cos(haRad); const elevRad = Math.asin(sinElev);
+            const cosAz = (Math.sin(decRad) - Math.sin(elevRad) * Math.sin(latRad)) / (Math.cos(elevRad) * Math.cos(latRad));
+            let az = Math.acos(cosAz) * deg; if (Math.sin(haRad) > 0) az = 360 - az;
+            return { elev: elevRad * deg, az: az };
+        }
+
+        function calculateEventTimes(date, lat, lon) {
+            const jd = getJulianDate(date); const sunPos = calculateSun(jd); const moonPos = calculateMoon(jd); const rad = Math.PI/180;
+            const d = jd - 2451545.0; const L0 = (280.466 + 0.9856474 * d) % 360; const M = (357.529 + 0.9856003 * d) % 360;
+            const eqTime = -1.914 * Math.sin(M*rad) - 0.02 * Math.sin(2*M*rad) + 2.466 * Math.sin(2*L0*rad) - 0.053 * Math.sin(4*L0*rad);
+            const solarNoonUTC = 12 - (lon / 15) - (eqTime / 15);
+
+            function getHourAngle(targetElev, dec) {
+                const cosH = (Math.sin(targetElev*rad) - Math.sin(lat*rad)*Math.sin(dec*rad)) / (Math.cos(lat*rad)*Math.cos(dec*rad));
+                if(cosH < -1 || cosH > 1) return null; return Math.acos(cosH) / rad / 15;
+            }
+            const hSunset = getHourAngle(-0.833, sunPos.dec); const hMoonset = getHourAngle(-0.833, moonPos.dec);
+            const formatTime = (u) => { if(!u) return "--:--"; let t = new Date(date); t.setUTCHours(Math.floor(u)); t.setUTCMinutes(Math.floor((u%1)*60)); return t.toLocaleTimeString('nl-NL', {hour: '2-digit', minute:'2-digit'}); };
+
+            document.getElementById('ev-noon').innerText = formatTime(solarNoonUTC);
+            document.getElementById('ev-sunrise').innerText = formatTime(solarNoonUTC - hSunset);
+            document.getElementById('ev-sunset').innerText = formatTime(solarNoonUTC + hSunset);
+            document.getElementById('ev-golden').innerText = formatTime(solarNoonUTC + hSunset - 0.8);
+            document.getElementById('ev-blue').innerText = formatTime(solarNoonUTC + hSunset + 0.4);
+            document.getElementById('ev-moonrise').innerText = formatTime(12 - (lon/15) - hMoonset + 1); 
+            document.getElementById('ev-moonset').innerText = formatTime(12 - (lon/15) + hMoonset + 1);
+        }
+
+        // --- 3. THE LIVE LOOP ---
+        const jdEpoch = 2461136.0;
+
+        function updateSystem() {
+            const now = new Date(); const jd = getJulianDate(now);
+            clockLocal.innerHTML = `LOKALE TIJD: ${now.toLocaleTimeString('nl-NL')}`; clockUTC.innerHTML = `UTC: ${now.toISOString().substring(11, 19)}`;
+            
+            const sunPos = calculateSun(jd); const sunAA = calculateElevAz(sunPos.ra, sunPos.dec, state.observer.lat, state.observer.lon, jd);
+            state.sol.elev = sunAA.elev; state.sol.az = sunAA.az;
+            
+            const moonPos = calculateMoon(jd); const moonAA = calculateElevAz(moonPos.ra, moonPos.dec, state.observer.lat, state.observer.lon, jd);
+            state.luna.elev = moonAA.elev; state.luna.az = moonAA.az;
+            state.luna.phase = ((jd - 2451550.1) % 29.53058867) / 29.53058867; if(state.luna.phase < 0) state.luna.phase += 1;
+
+            Object.keys(state.stars).forEach(k => { const s = state.stars[k]; const p = calculateElevAz(s.ra, s.dec, state.observer.lat, state.observer.lon, jd); s.elev = p.elev; s.az = p.az; });
+            
+            const daysSinceEpoch = jd - jdEpoch;
+            state.planets.forEach(p => { 
+                p.ra = (p.raBase + (p.raMotion * daysSinceEpoch)) % 360; p.dec = p.decBase; if (p.ra < 0) p.ra += 360;
+                const po = calculateElevAz(p.ra, p.dec, state.observer.lat, state.observer.lon, jd); p.elev = po.elev; p.az = po.az; 
+            });
+            state.comets.forEach(c => { 
+                c.ra = (c.raBase + (c.raMotion * daysSinceEpoch)) % 360; c.dec = c.decBase; if (c.ra < 0) c.ra += 360;
+                const po = calculateElevAz(c.ra, c.dec, state.observer.lat, state.observer.lon, jd); c.elev = po.elev; c.az = po.az; 
+            });
+
+            document.getElementById('sun-pos').innerText = `${state.sol.elev.toFixed(2)}° / ${state.sol.az.toFixed(2)}°`;
+            document.getElementById('moon-pos').innerText = `${state.luna.elev.toFixed(2)}° / ${state.luna.az.toFixed(2)}°`;
+            document.getElementById('moon-phase').innerText = `${(state.luna.phase*100).toFixed(1)}%`;
+            document.getElementById('planet-data-container').innerHTML = state.planets.map(p => `<div class="data-row"><span style="color:${p.color}">${p.name}</span><span>El: ${p.elev.toFixed(1)}° | Az: ${p.az.toFixed(1)}°</span></div>`).join('');
+            document.getElementById('comet-data-container').innerHTML = state.comets.map(c => `<div class="data-row"><span style="color:${c.color}">${c.id}</span><span>El: ${c.elev.toFixed(1)}° | Az: ${c.az.toFixed(1)}°</span></div>`).join('');
+            
+            document.getElementById('vega-pos').innerText = `${state.stars.vega.elev.toFixed(2)}° / ${state.stars.vega.az.toFixed(2)}°`;
+            document.getElementById('deneb-pos').innerText = `${state.stars.deneb.elev.toFixed(2)}° / ${state.stars.deneb.az.toFixed(2)}°`;
+            document.getElementById('alnitak-pos').innerText = `${state.stars.alnitak.elev.toFixed(2)}° / ${state.stars.alnitak.az.toFixed(2)}°`;
+        }
+
+        // --- 4. INTERACTIEVE 8D RENDERER MET SACRED GEOMETRY ---
+        const vertices8D = []; for (let i = 0; i < 256; i++) { let v = []; for (let j = 0; j < 8; j++) v[j] = (i >> j & 1) ? 1 : -1; vertices8D.push(v); }
+        const edges = []; for (let i = 0; i < 256; i++) { for (let j = i+1; j < 256; j++) { let d = 0; for(let k=0;k<8;k++) if(vertices8D[i][k]!==vertices8D[j][k]) d++; if(d===1) edges.push([i, j]); } }
+
+        function projectInteractief(v8) {
+            let curr = [...v8]; let idx = 0;
+            for (let i = 0; i < 8; i++) { for (let j = i + 1; j < 8; j++) { let t = state.angles[idx++]; let x = curr[i], y = curr[j]; curr[i] = x * Math.cos(t) - y * Math.sin(t); curr[j] = x * Math.sin(t) + y * Math.cos(t); } }
+            
+            let cx = curr[0], cy = curr[1], cz = curr[2];
+            let nx = cx * Math.cos(state.cam.rotY) - cz * Math.sin(state.cam.rotY); let nz = cx * Math.sin(state.cam.rotY) + cz * Math.cos(state.cam.rotY);
+            let ny = cy * Math.cos(state.cam.rotX) - nz * Math.sin(state.cam.rotX); nz = cy * Math.sin(state.cam.rotX) + nz * Math.cos(state.cam.rotX);
+
+            const scale = Math.min(canvas.width, canvas.height) * 0.38 * state.cam.zoom; 
+            const factor = 2 / (4 + curr[7] + nz*0.2); 
+            return { x: nx * factor * scale, y: ny * factor * scale };
+        }
+
+        function plotAstroObj(obj, cx, cy, ctx, color, size, label = "") {
+            const azR = (obj.az / 360) * Math.PI * 2; const elevR = (obj.elev / 90) * Math.PI / 2;
+            const pt = projectInteractief([Math.cos(azR), Math.sin(azR), Math.sin(elevR), Math.cos(elevR), 1, 1, 1, 1]);
+            const isVis = obj.elev > 0;
+            const fx = cx + pt.x, fy = cy + pt.y;
+            ctx.fillStyle = isVis ? color : 'rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.arc(fx, fy, size*state.cam.zoom, 0, Math.PI*2); ctx.fill();
+            if(isVis && label) { ctx.font = "10px Courier New"; ctx.fillText(label, fx + 8, fy + 3); }
+            return { x: fx, y: fy, visible: isVis };
+        }
+
+        function drawSacredHexAnchor(ctx, cx, cy, radius) {
+            // Lichtblauwe binnenste bol (cirkel)
+            ctx.beginPath(); 
+            ctx.arc(cx, cy, radius * state.cam.zoom, 0, Math.PI * 2);
+            ctx.strokeStyle = "rgba(135, 206, 235, 0.4)"; 
+            ctx.fillStyle = "rgba(135, 206, 235, 0.05)"; 
+            ctx.lineWidth = 2; 
+            ctx.fill(); ctx.stroke();
+
+            // Donkergrijze buitenste zeshoek (Hexagon)
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                let angle = (Math.PI / 3) * i - (Math.PI / 6) + state.cam.rotY;
+                let x = cx + (radius * 1.15 * state.cam.zoom) * Math.cos(angle);
+                let y = cy + (radius * 1.15 * state.cam.zoom) * Math.sin(angle);
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = "rgba(50, 50, 50, 0.8)"; 
+            ctx.lineWidth = 4; ctx.stroke(); 
+        }
+
+        function drawCosmos() {
+            if (canvas.width !== canvas.clientWidth) { canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; }
+            const cx = canvas.width / 2, cy = canvas.height / 2; ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < 28; i++) state.angles[i] += 0.001;
+
+            ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+            state.starMatrix.forEach(v => { const pt = projectInteractief(v); ctx.fillRect(cx + pt.x, cy + pt.y, 1.2 * state.cam.zoom, 1.2 * state.cam.zoom); });
+
+            ctx.lineWidth = 0.5;
+            edges.forEach(edge => {
+                const p1 = projectInteractief(vertices8D[edge[0]]); const p2 = projectInteractief(vertices8D[edge[1]]);
+                ctx.strokeStyle = state.isRecording ? `rgba(255, 61, 0, 0.1)` : `rgba(0, 229, 255, 0.05)`;
+                ctx.beginPath(); ctx.moveTo(cx + p1.x, cy + p1.y); ctx.lineTo(cx + p2.x, cy + p2.y); ctx.stroke();
+            });
+
+            drawSacredHexAnchor(ctx, cx, cy, Math.min(canvas.width, canvas.height) * 0.3);
+
+            plotAstroObj(state.sol, cx, cy, ctx, state.sol.color, 6, "0. ZON");
+            plotAstroObj(state.luna, cx, cy, ctx, "#ddd", 5, "9. MAAN");
+            
+            const pVega = plotAstroObj(state.stars.vega, cx, cy, ctx, "var(--accent-cyan)", 5, "VEGA");
+            const pDeneb = plotAstroObj(state.stars.deneb, cx, cy, ctx, "#fff", 4, "DENEB");
+            
+            if(pVega.visible || pDeneb.visible) {
+                ctx.strokeStyle = "rgba(255, 234, 0, 0.9)"; ctx.lineWidth = 2;
+                ctx.beginPath(); 
+                if(pVega.visible) { ctx.moveTo(cx, cy); ctx.lineTo(pVega.x, pVega.y); }
+                if(pDeneb.visible) { ctx.moveTo(cx, cy); ctx.lineTo(pDeneb.x, pDeneb.y); }
+                ctx.stroke();
+                
+                ctx.fillStyle = "rgba(255, 234, 0, 1)"; ctx.font = "bold 12px Courier New";
+                ctx.fillText("108° HOEK", cx - 30, cy + 20);
+            }
+
+            state.planets.forEach(p => plotAstroObj(p, cx, cy, ctx, p.color, 3, p.name));
+            state.comets.forEach(c => plotAstroObj(c, cx, cy, ctx, c.color, 3, c.id));
+
+            if(state.iss.elev !== 0) {
+                const iAz = (state.iss.az / 360) * Math.PI * 2; const iAlt = (state.iss.elev / 90) * Math.PI / 2;
+                const pt = projectInteractief([Math.cos(iAz), Math.sin(iAz), Math.sin(iAlt), Math.cos(iAlt), -1, -1, 0, 0]);
+                ctx.fillStyle = "var(--accent-green)"; ctx.beginPath(); ctx.arc(cx + pt.x, cy + pt.y, 4, 0, Math.PI*2); ctx.fill();
+                ctx.fillText("ISS", cx + pt.x + 8, cy + pt.y + 3);
+            }
+
+            requestAnimationFrame(drawCosmos);
+        }
+
+        // --- AUDIO & RECORDER ---
+        let audioCtx, osc, dest, gain;
+        document.getElementById('btn-audio').addEventListener('click', function() {
+            if (!state.audioActive) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)(); dest = audioCtx.createMediaStreamDestination();
+                osc = audioCtx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = state.freqCurrent;
+                gain = audioCtx.createGain(); gain.gain.value = 0.05; osc.connect(gain); gain.connect(audioCtx.destination); gain.connect(dest);
+                osc.start(); state.audioActive = true; this.textContent = '■ STOP AUDIO'; this.classList.add('active');
+            } else { osc.stop(); audioCtx.close(); state.audioActive = false; this.textContent = '▶ 80-BIT AUDIO'; this.classList.remove('active'); }
+        });
+
+        let mediaRecorder, chunks = [];
+        document.getElementById('btn-record').addEventListener('click', function() {
+            if (!state.isRecording) {
+                let s = canvas.captureStream(30); if(state.audioActive && dest) s = new MediaStream([...s.getVideoTracks(), ...dest.stream.getAudioTracks()]);
+                try { mediaRecorder = new MediaRecorder(s, {mimeType:'video/webm; codecs=vp9'}); } catch(e){ mediaRecorder = new MediaRecorder(s); }
+                mediaRecorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
+                mediaRecorder.onstop = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(chunks, {type:'video/webm'})); a.download = `VORTEX_LIVE_${new Date().getTime()}.webm`; a.click(); chunks = []; };
+                mediaRecorder.start(); state.isRecording = true; this.textContent = '⏹ STOP CAPTURE'; this.classList.add('recording'); document.getElementById('rec-status').style.display='block';
+            } else { mediaRecorder.stop(); state.isRecording = false; this.textContent = '⏺ CAPTURE DATA'; this.classList.remove('recording'); document.getElementById('rec-status').style.display='none'; }
+        });
+
+        // --- STARTUP ---
+        generateCosmicMatrix();
+        calculateEventTimes(new Date(), state.observer.lat, state.observer.lon);
+        setInterval(updateSystem, 1000);
+        
+        setInterval(async () => {
+            try { 
+                const r = await fetch('https://api.wheretheiss.at/v1/satellites/25544'); const d = await r.json(); 
+                state.iss.az = d.longitude+180; state.iss.elev = Math.abs(d.latitude); state.iss.vel = d.velocity;
+                document.getElementById('iss-pos').innerText = `${state.iss.elev.toFixed(2)}° / ${state.iss.az.toFixed(2)}°`;
+                state.freqCurrent = 1320.00 + (d.velocity / 20000); document.getElementById('val-freq').innerText = state.freqCurrent.toFixed(2) + " Hz"; 
+                if(state.audioActive && osc) osc.frequency.setTargetAtTime(state.freqCurrent, audioCtx.currentTime, 0.1);
+            } catch(e){}
+        }, 5000); // Polling op 5s om API rate limits te voorkomen
+
+        drawCosmos();
+    </script>
+</body>
+</html>

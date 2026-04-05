@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>VORTEX v108.0 // HELIOS & LUNA ENGINE</title>
+    <style>
+        :root {
+            --bg-dark: #050505; --panel-bg: #0a0a0a; --border-color: #1f1f1f;
+            --accent-cyan: #00e5ff; --accent-green: #00e676; --accent-yellow: #ffea00;
+            --accent-red: #ff3d00; --accent-purple: #b388ff; --font-mono: 'Courier New', monospace;
+        }
+        body { background: var(--bg-dark); color: #e0e0e0; font-family: var(--font-mono); margin: 0; overflow: hidden; display: grid; grid-template-rows: 60px 1fr; height: 100vh; }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--border-color); background: #000; z-index: 10; }
+        main { display: grid; grid-template-columns: 380px 1fr 400px; gap: 15px; padding: 15px; height: calc(100vh - 100px); box-sizing: border-box; }
+        
+        .panel { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 15px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+        .section-title { color: var(--accent-cyan); font-size: 0.75em; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #222; padding-bottom: 3px; margin-bottom: 5px; }
+        .data-row { display: flex; justify-content: space-between; font-size: 0.75em; margin-bottom: 2px; font-family: monospace; }
+        .highlight { color: #fff; font-weight: bold; }
+        
+        canvas { width: 100%; height: 100%; background: #000; border: 1px solid var(--border-color); }
+        #terminal { font-size: 0.7em; color: var(--accent-green); background: #000; padding: 8px; flex-grow: 1; overflow-y: auto; border: 1px solid #111; line-height: 1.3; }
+        
+        button { background: transparent; color: var(--accent-cyan); border: 1px solid var(--accent-cyan); padding: 6px 12px; font-family: var(--font-mono); cursor: pointer; transition: all 0.2s; font-size: 0.75em; font-weight: bold; margin-left: 10px; }
+        button:hover { background: var(--accent-cyan); color: #000; }
+        button.active { background: var(--accent-yellow); border-color: var(--accent-yellow); color: #000; }
+        
+        .btn-record { color: var(--text-main); border-color: #444; }
+        .btn-record:hover { background: #333; color: #fff; }
+        .btn-record.recording { background: var(--accent-red); border-color: var(--accent-red); color: #fff; animation: pulseRed 1.5s infinite; }
+        
+        @keyframes pulseRed { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .live-indicator { color: var(--accent-red); animation: pulseRed 1s infinite; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="color: var(--accent-cyan); font-weight: bold;">VORTEX v108.0 // HELIOS & LUNA ENGINE</div>
+        <div style="text-align: center;">
+            <div id="sys-clock-local" style="color: var(--accent-yellow); font-size: 0.85em;">AWAITING GEO-LOCK...</div>
+            <div id="sys-clock-utc" style="color: var(--text-muted); font-size: 0.65em;">UTC: --:--:--</div>
+        </div>
+        <div>
+            <button id="btn-audio">▶ 80-BIT AUDIO</button>
+            <button id="btn-record" class="btn-record">⏺ CAPTURE DATA</button>
+        </div>
+    </header>
+    <main>
+        <div class="panel">
+            <div class="section-title">DEEP SPACE KINEMATICS <span class="live-indicator" style="float:right;">LIVE</span></div>
+            
+            <div class="data-row"><span style="color: var(--accent-cyan)">VEGA (α Lyr)</span><span id="vega-pos" class="highlight">Calc...</span></div>
+            <div class="data-row" style="margin-top: 5px;"><span style="color: #fff">DENEB (α Cyg)</span><span id="deneb-pos" class="highlight">Calc...</span></div>
+
+            <div class="section-title" style="margin-top: 15px;">ZONNESTELSEL (LOKAAL)</div>
+            <div class="data-row"><span style="color: var(--accent-yellow); font-weight:bold;">☀️ ZON (Helios)</span><span id="sun-pos" class="highlight">Calc...</span></div>
+            <div class="data-row"><span style="color: #ddd; font-weight:bold;">🌙 MAAN (Luna)</span><span id="moon-pos" class="highlight">Calc...</span></div>
+            
+            <div id="planet-data-container" style="overflow-y: auto; flex-grow: 1; margin-top: 10px; border-top: 1px solid #222; padding-top: 5px;">
+                </div>
+            
+            <div class="section-title" style="margin-top: 10px;">ORBITAL OVERRIDE</div>
+            <div class="data-row"><span class="green">ISS 25544 (ALT/AZ):</span><span id="iss-pos" class="highlight green">SYNCING...</span></div>
+            <div class="data-row" style="margin-top: 5px;"><span>Doppler (80-Bit):</span><span id="val-freq" class="highlight yellow">1320.00 Hz</span></div>
+        </div>
+
+        <div class="panel" style="padding:0; position: relative;">
+            <canvas id="cosmicCanvas"></canvas>
+            <div id="rec-status" style="position: absolute; top: 10px; right: 10px; color: var(--accent-red); font-weight: bold; font-size: 0.8em; display: none; animation: pulseRed 1s infinite;">⏺ REC</div>
+            <div style="position: absolute; bottom: 10px; left: 10px; color: rgba(255,255,255,0.4); font-size: 0.7em;">8D TESSELATION | SUN & MOON EPHEMERIS</div>
+        </div>
+
+        <div class="panel">
+            <div class="section-title">HWFT PERCEPTION LAYER</div>
+            <div style="font-size: 0.7em; color: #ccc; line-height: 1.5;">
+                > Tijdzone: <span id="tz-info" style="color: var(--accent-cyan)">Detecting...</span><br>
+                > GPS Lock: <span id="gps-info" style="color: var(--accent-cyan)">Pending...</span><br>
+                > Media Recorder: <span style="color: var(--accent-green)">READY (WebM/VP9)</span>
+            </div>
+
+            <div class="section-title" style="margin-top: 15px;">SYSTEM LOG</div>
+            <div id="terminal">
+                <div class="log-entry">> VORTEX v108.0 Initializing...</div>
+                <div class="log-entry">> Helios & Luna orbitale wiskunde geladen.</div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('cosmicCanvas');
+        const ctx = canvas.getContext('2d');
+        const terminal = document.getElementById('terminal');
+        const clockLocal = document.getElementById('sys-clock-local');
+        const clockUTC = document.getElementById('sys-clock-utc');
+        
+        let state = {
+            observer: { lat: 52.25, lon: 5.23, locName: "LAREN (FALLBACK)" },
+            stars: [
+                { id: "Vega", ra: 279.23, dec: 38.78, alt: 0, az: 0, color: "var(--accent-cyan)" },
+                { id: "Deneb", ra: 310.35, dec: 45.28, alt: 0, az: 0, color: "#ffffff" }
+            ],
+            sol: { ra: 0, dec: 0, alt: 0, az: 0, color: "var(--accent-yellow)" },
+            luna: { ra: 0, dec: 0, alt: 0, az: 0, color: "#dddddd" },
+            planets: [
+                {id: 1, name: "Mercurius", ra: 20, dec: 10, alt: 0, az: 0, color: "#aaa"},
+                {id: 2, name: "Venus", ra: 45, dec: 20, alt: 0, az: 0, color: "#eec"},
+                {id: 4, name: "Mars", ra: 90, dec: 24, alt: 0, az: 0, color: "#f55"},
+                {id: 5, name: "Jupiter", ra: 60, dec: 21, alt: 0, az: 0, color: "#dbb"},
+                {id: 6, name: "Saturnus", ra: 330, dec: -10, alt: 0, az: 0, color: "#eda"}
+            ],
+            iss: {alt: 51.22, az: 112.31, vel: 27566},
+            freqCurrent: 1320.00,
+            angles: new Array(28).fill(0),
+            audioActive: false,
+            isRecording: false
+        };
+
+        function log(m, col="") {
+            const d = document.createElement('div');
+            d.innerHTML = `> [${new Date().toLocaleTimeString()}] ${m}`;
+            if(col) d.style.color = col;
+            terminal.appendChild(d); terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        // --- 1. ASTRONOMISCHE BEREKENINGEN (ZON, MAAN & STERREN) ---
+        function getJulianDate(date) {
+            return (date.getTime() / 86400000) + 2440587.5;
+        }
+
+        function calculateSun(jd) {
+            const n = jd - 2451545.0;
+            const L = (280.460 + 0.9856474 * n) % 360;
+            const g = (357.528 + 0.9856003 * n) % 360;
+            const lambda = L + 1.915 * Math.sin(g * Math.PI/180) + 0.020 * Math.sin(2 * g * Math.PI/180);
+            const epsilon = 23.439 - 0.0000004 * n;
+            
+            let alpha = Math.atan2(Math.cos(epsilon*Math.PI/180) * Math.sin(lambda*Math.PI/180), Math.cos(lambda*Math.PI/180)) * 180/Math.PI;
+            let delta = Math.asin(Math.sin(epsilon*Math.PI/180) * Math.sin(lambda*Math.PI/180)) * 180/Math.PI;
+            if (alpha < 0) alpha += 360;
+            return { ra: alpha, dec: delta };
+        }
+
+        function calculateMoon(jd) {
+            const d = jd - 2451545.0;
+            const L = (218.316 + 13.176396 * d) % 360;
+            const M = (134.963 + 13.064993 * d) % 360;
+            const F = (93.272 + 13.229350 * d) % 360;
+            const lambda = L + 6.289 * Math.sin(M * Math.PI/180);
+            const beta = 5.128 * Math.sin(F * Math.PI/180);
+            const epsilon = 23.439;
+            
+            const rad = Math.PI/180;
+            let ra = Math.atan2(Math.sin(lambda*rad)*Math.cos(epsilon*rad) - Math.tan(beta*rad)*Math.sin(epsilon*rad), Math.cos(lambda*rad)) / rad;
+            let dec = Math.asin(Math.sin(beta*rad)*Math.cos(epsilon*rad) + Math.cos(beta*rad)*Math.sin(epsilon*rad)*Math.sin(lambda*rad)) / rad;
+            if (ra < 0) ra += 360;
+            return { ra: ra, dec: dec };
+        }
+
+        function calculateAltAz(ra, dec, lat, lon, jd) {
+            const rad = Math.PI / 180;
+            const deg = 180 / Math.PI;
+
+            const d = jd - 2451545.0;
+            let gmst = (280.46061837 + 360.98564736629 * d) % 360;
+            if (gmst < 0) gmst += 360;
+
+            let lst = (gmst + lon) % 360;
+            if (lst < 0) lst += 360;
+
+            let ha = (lst - ra) % 360;
+            if (ha < 0) ha += 360;
+
+            const haRad = ha * rad, decRad = dec * rad, latRad = lat * rad;
+            const sinAlt = Math.sin(decRad) * Math.sin(latRad) + Math.cos(decRad) * Math.cos(latRad) * Math.cos(haRad);
+            const altRad = Math.asin(sinAlt);
+            
+            const cosAz = (Math.sin(decRad) - Math.sin(altRad) * Math.sin(latRad)) / (Math.cos(altRad) * Math.cos(latRad));
+            let az = Math.acos(cosAz) * deg;
+            if (Math.sin(haRad) > 0) az = 360 - az;
+
+            return { alt: altRad * deg, az: az };
+        }
+
+        function initGeolocation() {
+            // Tijdzone ophalen via de browser
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            document.getElementById('tz-info').innerText = tz;
+
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition((position) => {
+                    state.observer.lat = position.coords.latitude;
+                    state.observer.lon = position.coords.longitude;
+                    document.getElementById('gps-info').innerText = `LOCKED (${state.observer.lat.toFixed(2)}N, ${state.observer.lon.toFixed(2)}E)`;
+                    log(`GPS Lock & Timezone: ${tz}`, "var(--accent-green)");
+                }, () => {
+                    document.getElementById('gps-info').innerText = `DENIED (Laren Fallback)`;
+                    log(`GPS Geweigerd. Fallback naar Laren.`, "var(--accent-red)");
+                });
+            }
+        }
+
+        // --- 2. UPDATE ENGINE ---
+        setInterval(() => {
+            const now = new Date();
+            const jd = getJulianDate(now);
+            
+            // Update Klokken
+            clockLocal.innerHTML = `LOKALE TIJD: ${now.toLocaleTimeString('nl-NL')}`;
+            clockUTC.innerHTML = `UTC: ${now.toISOString().substring(11, 19)}`;
+            
+            // Bereken Zon & Maan
+            const sunPos = calculateSun(jd);
+            const sunAltAz = calculateAltAz(sunPos.ra, sunPos.dec, state.observer.lat, state.observer.lon, jd);
+            state.sol.alt = sunAltAz.alt; state.sol.az = sunAltAz.az;
+
+            const moonPos = calculateMoon(jd);
+            const moonAltAz = calculateAltAz(moonPos.ra, moonPos.dec, state.observer.lat, state.observer.lon, jd);
+            state.luna.alt = moonAltAz.alt; state.luna.az = moonAltAz.az;
+
+            // Update Sterren & Planeten
+            state.stars.forEach(s => { const pos = calculateAltAz(s.ra, s.dec, state.observer.lat, state.observer.lon, jd); s.alt = pos.alt; s.az = pos.az; });
+            state.planets.forEach(p => { p.ra += 0.001; const pos = calculateAltAz(p.ra, p.dec, state.observer.lat, state.observer.lon, jd); p.alt = pos.alt; p.az = pos.az; });
+
+            updateUI();
+        }, 1000);
+
+        function updateUI() {
+            document.getElementById('sun-pos').innerText = `${state.sol.alt.toFixed(2)}° / ${state.sol.az.toFixed(2)}°`;
+            document.getElementById('moon-pos').innerText = `${state.luna.alt.toFixed(2)}° / ${state.luna.az.toFixed(2)}°`;
+            document.getElementById('vega-pos').innerText = `${state.stars[0].alt.toFixed(2)}° / ${state.stars[0].az.toFixed(2)}°`;
+            document.getElementById('deneb-pos').innerText = `${state.stars[1].alt.toFixed(2)}° / ${state.stars[1].az.toFixed(2)}°`;
+
+            document.getElementById('planet-data-container').innerHTML = state.planets.map(p => `
+                <div class="data-row">
+                    <span style="color:${p.color}">${p.id}. ${p.name}</span>
+                    <span>Alt: ${p.alt.toFixed(2)}° | Az: ${p.az.toFixed(2)}°</span>
+                </div>
+            `).join('');
+            
+            document.getElementById('iss-pos').innerText = `${state.iss.alt.toFixed(2)}° / ${state.iss.az.toFixed(2)}°`;
+            document.getElementById('val-freq').innerText = `${state.freqCurrent.toFixed(2)} Hz`;
+        }
+
+        // --- 3. DATA RECORDER & AUDIO ---
+        let audioCtx, oscMain, audioDest, masterGain;
+        document.getElementById('btn-audio').addEventListener('click', function() {
+            if (!state.audioActive) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                masterGain = audioCtx.createGain(); masterGain.gain.value = 0.05;
+                audioDest = audioCtx.createMediaStreamDestination();
+                oscMain = audioCtx.createOscillator(); oscMain.type = 'sawtooth'; oscMain.frequency.value = state.freqCurrent;
+                oscMain.connect(masterGain); masterGain.connect(audioCtx.destination); masterGain.connect(audioDest);
+                oscMain.start(); state.audioActive = true;
+                this.textContent = '■ STOP AUDIO'; this.classList.add('active');
+            } else {
+                oscMain.stop(); audioCtx.close(); state.audioActive = false;
+                this.textContent = '▶ 80-BIT AUDIO'; this.classList.remove('active');
+            }
+        });
+
+        let mediaRecorder; let recordedChunks = [];
+        document.getElementById('btn-record').addEventListener('click', function() {
+            if (!state.isRecording) {
+                const canvasStream = canvas.captureStream(30);
+                let combinedStream = canvasStream;
+                if (state.audioActive && audioDest) {
+                    combinedStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioDest.stream.getAudioTracks()]);
+                }
+                try { mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm; codecs=vp9' }); } 
+                catch (e) { mediaRecorder = new MediaRecorder(combinedStream); }
+                
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' }); recordedChunks = [];
+                    const url = URL.createObjectURL(blob); const a = document.createElement('a');
+                    a.style.display = 'none'; a.href = url; a.download = `VORTEX_DATA_CAPTURE_${new Date().getTime()}.webm`;
+                    document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url);
+                    log("Video Data Capture Opgeslagen.", "var(--accent-green)");
+                };
+                mediaRecorder.start(); state.isRecording = true;
+                this.textContent = '⏹ STOP CAPTURE'; this.classList.add('recording');
+                document.getElementById('rec-status').style.display = 'block';
+                log("OPNAME GESTART: Video & Audio stream gekoppeld.", "var(--accent-red)");
+            } else {
+                mediaRecorder.stop(); state.isRecording = false;
+                this.textContent = '⏺ CAPTURE DATA'; this.classList.remove('recording');
+                document.getElementById('rec-status').style.display = 'none';
+            }
+        });
+
+        // --- 4. 8D TESSERACT RENDERER ---
+        const vertices8D = [];
+        for (let i = 0; i < 256; i++) {
+            let v = []; for (let j = 0; j < 8; j++) v[j] = (i >> j & 1) ? 1 : -1;
+            vertices8D.push(v);
+        }
+        const edges = [];
+        for (let i = 0; i < 256; i++) {
+            for (let j = i + 1; j < 256; j++) {
+                let diff = 0; for (let k = 0; k < 8; k++) if (vertices8D[i][k] !== vertices8D[j][k]) diff++;
+                if (diff === 1) edges.push([i, j]);
+            }
+        }
+
+        function project(v8) {
+            let curr = [...v8]; let idx = 0;
+            for (let i = 0; i < 8; i++) {
+                for (let j = i + 1; j < 8; j++) {
+                    let theta = state.angles[idx++];
+                    let x = curr[i], y = curr[j];
+                    curr[i] = x * Math.cos(theta) - y * Math.sin(theta);
+                    curr[j] = x * Math.sin(theta) + y * Math.cos(theta);
+                }
+            }
+            const scale = Math.min(canvas.width, canvas.height) * 0.35;
+            const factor = 2 / (4 + curr[7]); 
+            return { x: curr[0] * factor * scale, y: curr[1] * factor * scale, z: curr[2] };
+        }
+
+        function draw() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            const cx = canvas.width / 2, cy = canvas.height / 2;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const rotSpeed = 0.001 + ((state.freqCurrent - 1320) * 0.0005);
+            for (let i = 0; i < 28; i++) state.angles[i] += rotSpeed;
+
+            ctx.lineWidth = 0.5;
+            edges.forEach(edge => {
+                const p1 = project(vertices8D[edge[0]]);
+                const p2 = project(vertices8D[edge[1]]);
+                const depth = (p1.z + p2.z + 4) / 8;
+                ctx.strokeStyle = state.isRecording ? `rgba(255, 61, 0, ${depth * 0.2})` : `rgba(0, 229, 255, ${depth * 0.1})`;
+                ctx.beginPath(); ctx.moveTo(cx + p1.x, cy + p1.y); ctx.lineTo(cx + p2.x, cy + p2.y); ctx.stroke();
+            });
+
+            // Teken Zon, Maan, Sterren & Planeten
+            const celestialObjects = [
+                {...state.sol, name: "SUN", size: 6}, 
+                {...state.luna, name: "MOON", size: 5},
+                ...state.stars.map(s => ({...s, size: 4, name: s.id})),
+                ...state.planets.map(p => ({...p, size: 3, name: p.id.toString()}))
+            ];
+
+            celestialObjects.forEach(obj => {
+                const isVisible = obj.alt > 0;
+                const azRad = (obj.az / 360) * Math.PI * 2;
+                const altRad = (obj.alt / 90) * Math.PI / 2;
+                const vObj = [Math.cos(azRad), Math.sin(azRad), Math.sin(altRad), Math.cos(altRad), 1, 1, 1, 1];
+                const pt = project(vObj);
+                
+                ctx.fillStyle = isVisible ? obj.color : '#333';
+                ctx.beginPath(); ctx.arc(cx + pt.x, cy + pt.y, obj.size, 0, Math.PI*2); ctx.fill();
+                
+                if(isVisible) {
+                    ctx.font = "10px Courier New"; 
+                    ctx.fillText(obj.name, cx + pt.x + 8, cy + pt.y + 3);
+                }
+            });
+
+            // Teken ISS
+            const iAz = (state.iss.az / 360) * Math.PI * 2;
+            const iAlt = (state.iss.alt / 90) * Math.PI / 2;
+            const vISS = [Math.cos(iAz), Math.sin(iAz), Math.sin(iAlt), Math.cos(iAlt), -1, -1, 0, 0];
+            const pISS = project(vISS);
+            ctx.fillStyle = "var(--accent-green)"; ctx.shadowBlur = 10; ctx.shadowColor = "var(--accent-green)";
+            ctx.beginPath(); ctx.arc(cx + pISS.x, cy + pISS.y, 5, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            requestAnimationFrame(draw);
+        }
+
+        // --- API ---
+        async function fetchISS() {
+            try {
+                const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+                const data = await res.json();
+                state.iss.az = data.longitude + 180; state.iss.alt = Math.abs(data.latitude);
+                state.freqCurrent = 1320.00 + (data.velocity / 20000);
+            } catch(e) {}
+        }
+
+        initGeolocation();
+        setInterval(fetchISS, 2000);
+        draw();
+    </script>
+</body>
+</html>

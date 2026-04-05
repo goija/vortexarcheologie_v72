@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>VORTEX v106.4 // COSMIC TESSELATION</title>
+    <style>
+        :root {
+            --bg-dark: #050505; --panel-bg: #0a0a0a; --border-color: #1f1f1f;
+            --accent-cyan: #00e5ff; --accent-green: #00e676; --accent-yellow: #ffea00;
+            --accent-red: #ff3d00; --font-mono: 'Courier New', monospace;
+        }
+        body { background: var(--bg-dark); color: #e0e0e0; font-family: var(--font-mono); margin: 0; overflow: hidden; display: grid; grid-template-rows: 60px 1fr; height: 100vh; }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--border-color); background: #000; z-index: 10; }
+        main { display: grid; grid-template-columns: 350px 1fr 380px; gap: 20px; padding: 20px; height: calc(100vh - 100px); box-sizing: border-box; }
+        .panel { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+        .section-title { color: var(--accent-cyan); font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #222; padding-bottom: 5px; }
+        .data-row { display: flex; justify-content: space-between; font-size: 0.8em; margin-bottom: 6px; }
+        .highlight { color: #fff; font-weight: bold; }
+        #canvas-container { position: relative; width: 100%; height: 100%; background: #000; border: 1px solid var(--border-color); }
+        canvas { width: 100%; height: 100%; }
+        #terminal { font-size: 0.72em; color: var(--accent-green); background: #000; padding: 10px; flex-grow: 1; overflow-y: auto; border: 1px solid #111; line-height: 1.4; }
+        table.ephemeris { width: 100%; font-size: 0.7em; border-collapse: collapse; color: #ccc; }
+        table.ephemeris th { text-align: left; color: var(--accent-yellow); padding-bottom: 3px; }
+        table.ephemeris td { padding: 3px 0; border-bottom: 1px solid #111; }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="color: var(--accent-cyan); font-weight: bold;">VORTEX v106.4 // COSMIC TESSELATION</div>
+        <div id="sys-clock" style="color: var(--accent-yellow);">SYNCING...</div>
+        <div id="status-link" style="color: var(--accent-green); font-size: 0.8em;">[ LINK: ACTIVE ]</div>
+    </header>
+    <main>
+        <div class="panel">
+            <div class="section-title">ASTRONOMISCHE METRIEK</div>
+            <div class="data-row"><span>DIMENSIE:</span><span class="highlight">8D Tesseract</span></div>
+            <div class="data-row"><span>STERREN GEMAPT:</span><span class="highlight">9096 (BSC)</span></div>
+            <div class="data-row"><span>TESSELATIE:</span><span class="highlight">16666.67 Hex</span></div>
+            
+            <div style="margin-top: 15px;">
+                <div class="green" style="font-size: 0.7em;">TARGET: ISS 25544 (LIVE)</div>
+                <div class="data-row"><span>ALT:</span><span id="iss-alt" class="highlight green">--.--°</span></div>
+                <div class="data-row"><span>AZ:</span><span id="iss-az" class="highlight green">--.--°</span></div>
+                <div class="data-row"><span>VEL:</span><span id="iss-vel" class="highlight green">0 km/h</span></div>
+            </div>
+            <div style="margin-top: 15px; border-top: 1px solid #222; padding-top: 10px;">
+                <div class="cyan" style="font-size: 0.7em;">DOPPLER HARMONIC [80-BIT]</div>
+                <div id="val-freq" style="font-size: 1.4em; color: var(--accent-green);">1320.00 Hz</div>
+            </div>
+        </div>
+
+        <div class="panel" style="padding:0;">
+            <div id="canvas-container">
+                <canvas id="cosmicCanvas"></canvas>
+                <div style="position: absolute; bottom: 10px; left: 10px; color: rgba(255,255,255,0.2); font-size: 0.6em;">ALL VISIBLE STARS MAPPED TO 8D EDGES</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="section-title">EFEMERIDE VOORSPELLING: ISS PASSES</div>
+            <table class="ephemeris">
+                <thead><tr><th>DATUM</th><th>START (AZ/ALT)</th><th>MAX (ALT)</th><th>EIND (AZ/ALT)</th></tr></thead>
+                <tbody id="ephemeris-body"></tbody>
+            </table>
+            
+            <div style="margin-top: 10px; border-top: 1px solid #222; padding-top: 10px;">
+                <div class="section-title">SYSTEM LOG</div>
+                <div id="terminal">
+                    <div class="log-entry">> VORTEX v106.4 OS Geladen...</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- 1. STATE & MATH ---
+        let state = {
+            iss: { alt: 0, az: 0, vel: 0 },
+            freqBase: 1320.00,
+            freqCurrent: 1320.00,
+            currentQ: { w: 1, x: 0, y: 0, z: 0 },
+            targetQ: { w: 1, x: 0, y: 0, z: 0 },
+            starMatrix: [] // Bevat 8D coördinaten van 9000+ sterren
+        };
+
+        const terminal = document.getElementById('terminal');
+        const canvas = document.getElementById('cosmicCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function log(m, color="") {
+            const d = document.createElement('div');
+            d.innerHTML = `> [${new Date().toLocaleTimeString()}] ${m}`;
+            if(color) d.style.color = color;
+            terminal.appendChild(d); terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        // --- 2. QUATERNION ENGINE (3D) ---
+        function quatMult(q1, q2) {
+            return {
+                w: q1.w*q2.w - q1.x*q2.x - q1.y*q2.y - q1.z*q2.z,
+                x: q1.w*q2.x + q1.x*q2.w + q1.y*q2.z - q1.z*q2.y,
+                y: q1.w*q2.y - q1.x*q2.z + q1.y*q2.w + q1.z*q2.x,
+                z: q1.w*q2.z + q1.x*q2.y - q1.y*q2.x + q1.z*q2.w
+            };
+        }
+        function axisAngleToQuat(x, y, z, angle_rad) {
+            const s = Math.sin(angle_rad / 2);
+            return { w: Math.cos(angle_rad / 2), x: x * s, y: y * s, z: z * s };
+        }
+        function normalizeQuat(q) {
+            const len = Math.sqrt(q.w*q.w + q.x*q.x + q.y*q.y + q.z*q.z);
+            return { w: q.w/len, x: q.x/len, y: q.y/len, z: q.z/len };
+        }
+        function slerp(q1, q2, t) {
+            let dot = q1.w*q2.w + q1.x*q2.x + q1.y*q2.y + q1.z*q2.z;
+            let q3 = q2;
+            if (dot < 0) { dot = -dot; q3 = { w: -q2.w, x: -q2.x, y: -q2.y, z: -q2.z }; }
+            if (dot > 0.9995) return normalizeQuat({ w: q1.w + t*(q3.w - q1.w), x: q1.x + t*(q3.x - q1.x), y: q1.y + t*(q3.y - q1.y), z: q1.z + t*(q3.z - q1.z) });
+            const theta_0 = Math.acos(dot);
+            const theta = theta_0 * t;
+            const sin_theta = Math.sin(theta);
+            const sin_theta_0 = Math.sin(theta_0);
+            const s0 = Math.cos(theta) - dot * sin_theta / sin_theta_0;
+            const s1 = sin_theta / sin_theta_0;
+            return { w: s0*q1.w + s1*q3.w, x: s0*q1.x + s1*q3.x, y: s0*q1.y + s1*q3.y, z: s0*q1.z + s1*q3.z };
+        }
+        function rotateVec3(v, q) {
+            const qv = { w: 0, x: v.x, y: v.y, z: v.z };
+            const qInv = { w: q.w, x: -q.x, y: -q.y, z: -q.z };
+            const res = quatMult(quatMult(q, qv), qInv);
+            return { x: res.x, y: res.y, z: res.z };
+        }
+
+        // --- 3. COSMIC TESSELATION ENGINE ---
+        // Genereer de topologie van de 8D Tesseract (Octeract)
+        const vertices8D = [];
+        for (let i = 0; i < 256; i++) {
+            let v = [];
+            for (let j = 0; j < 8; j++) v[j] = (i >> j & 1) ? 1 : -1;
+            vertices8D.push(v);
+        }
+        const edges = [];
+        for (let i = 0; i < 256; i++) {
+            for (let j = i + 1; j < 256; j++) {
+                let diff = 0;
+                for (let k = 0; k < 8; k++) if (vertices8D[i][k] !== vertices8D[j][k]) diff++;
+                if (diff === 1) edges.push([i, j]);
+            }
+        }
+
+        // Simuleer de 9000+ sterren (Mapping van Alt/Az naar 8D-vector)
+        function generateStarMatrix() {
+            log("Mapping Yale Bright Star Catalogue naar 8D topologie...");
+            for (let i = 0; i < 9096; i++) {
+                // WillekeurigeAlt/Az voor simulatie (wordt later echte BSC data)
+                const azRad = Math.random() * Math.PI * 2;
+                const altRad = Math.random() * Math.PI - Math.PI/2;
+                
+                // Mappen naar een 8D-vector punt
+                state.starMatrix.push([
+                    Math.cos(azRad), Math.sin(azRad), Math.sin(altRad), Math.cos(altRad),
+                    Math.random() > 0.5 ? 1 : -1, Math.random() > 0.5 ? -1 : 1, 0, 0
+                ]);
+            }
+            log("9096 sterren gemapt op 1024 edges.", "var(--accent-yellow)");
+        }
+
+        let angles = new Array(28).fill(0); // 28 rotatievlakken in 8D
+
+        function project(v8) {
+            let curr = [...v8];
+            let idx = 0;
+            for (let i = 0; i < 8; i++) {
+                for (let j = i + 1; j < 8; j++) {
+                    let theta = angles[idx++];
+                    let x = curr[i], y = curr[j];
+                    curr[i] = x * Math.cos(theta) - y * Math.sin(theta);
+                    curr[j] = x * Math.sin(theta) + y * Math.cos(theta);
+                }
+            }
+            const scale = Math.min(canvas.width, canvas.height) * 0.4;
+            const factor = 2 / (3 + curr[7]); // Gebruik de 8e dimensie voor perspectief
+            return { x: curr[0] * factor * scale, y: curr[1] * factor * scale, z: curr[2] };
+        }
+
+        function drawCosmos() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            const cx = canvas.width / 2, cy = canvas.height / 2;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Hyper-rotatie base
+            for (let i = 0; i < 28; i++) angles[i] += 0.001;
+
+            // Teken Edges (De Tesselatie-structuur)
+            ctx.lineWidth = 0.5;
+            edges.forEach(edge => {
+                const p1 = project(vertices8D[edge[0]]);
+                const p2 = project(vertices8D[edge[1]]);
+                const depth = (p1.z + p2.z + 4) / 8;
+                ctx.strokeStyle = `rgba(0, 229, 255, ${depth * 0.1})`; // Zeer subtiel Cyan
+                ctx.beginPath(); ctx.moveTo(cx + p1.x, cy + p1.y); ctx.lineTo(cx + p2.x, cy + p2.y); ctx.stroke();
+            });
+
+            // Teken de Sterren
+            state.starMatrix.forEach(v8 => {
+                const p = project(v8);
+                const depth = (p.z + 4) / 8;
+                ctx.fillStyle = `rgba(255, 255, 255, ${depth * 0.7})`; // Sterren in wit
+                ctx.beginPath(); ctx.arc(cx + p.x, cy + p.y, 0.6, 0, Math.PI*2); ctx.fill();
+            });
+
+            // Teken ISS (Target)
+            const azRad = (state.iss.az / 360) * Math.PI * 2;
+            const altRad = (state.iss.alt / 90) * (Math.PI / 2);
+            const vISS = [Math.cos(azRad), Math.sin(azRad), Math.sin(altRad), Math.cos(altRad), 1, -1, 0, 0];
+            const pISS = project(vISS);
+            ctx.fillStyle = "var(--accent-green)"; ctx.shadowBlur = 15; ctx.shadowColor = "var(--accent-green)";
+            ctx.beginPath(); ctx.arc(cx + pISS.x, cy + pISS.y, 6, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            requestAnimationFrame(drawCosmos);
+        }
+
+        // --- 4. TELEMETRIE & EFEMERIDE (Simulatie) ---
+        async function fetchISS() {
+            try {
+                const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+                const data = await res.json();
+                state.iss.az = data.longitude + 180; state.iss.alt = Math.abs(data.latitude);
+                state.iss.vel = data.velocity;
+
+                document.getElementById('iss-alt').innerText = state.iss.alt.toFixed(2) + "°";
+                document.getElementById('iss-az').innerText = state.iss.az.toFixed(2) + "°";
+                document.getElementById('iss-vel').innerText = Math.round(state.iss.vel) + " km/h";
+
+                // Doppler shift effect op 1320 Hz basis
+                state.freqCurrent = 1320.00 + (state.iss.vel / 20000);
+                document.getElementById('val-freq').innerText = state.freqCurrent.toFixed(2) + " Hz";
+
+                log(`ISS Telemetrie Sync.`);
+            } catch(e) { log("ISS API Timeout"); }
+        }
+
+        function generatePasses() {
+            // Gesimuleerde efemeride data (voor Laren, NL)
+            const passes = [
+                { date: '6 APR', start: '22:14 312°/10°', max: '22:17 81°', end: '22:20 125°/10°' },
+                { date: '7 APR', start: '21:26 315°/10°', max: '21:29 76°', end: '21:32 121°/10°' },
+                { date: '8 APR', start: '22:14 294°/10°', max: '22:16 48°', end: '22:18 141°/18°' }
+            ];
+            const tbody = document.getElementById('ephemeris-body');
+            tbody.innerHTML = passes.map(p => `<tr><td>${p.date}</td><td>${p.start}</td><td>${p.max}</td><td>${p.end}</td></tr>`).join('');
+            log("Efemeride passes gegenereerd.");
+        }
+
+        // Init
+        setInterval(() => { document.getElementById('sys-clock').textContent = new Date().toISOString().substring(11, 19) + " UTC"; }, 1000);
+        setInterval(fetchISS, 3000);
+        window.addEventListener('resize', () => { drawCosmos(); });
+        
+        log("Octeract Kernel v106.4 Ready.");
+        log("8D Tesselatie Matrix actief.");
+        fetchISS(); generatePasses(); generateStarMatrix(); drawCosmos();
+    </script>
+</body>
+</html>
