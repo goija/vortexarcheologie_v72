@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX v105.3 // ASTRO-ENGINE MASTER</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
+
+    <style>
+        :root {
+            /* VORTEX Base Colors */
+            --cyan: #00d2ff;
+            --magenta: #ff00ff;
+            --emerald: #00ea69;
+            --amber: #ffaa00;
+            --bg-color: #020202;
+            --panel-bg: #07070a;
+            --border-dim: #1a1a1a;
+            --text-dim: #666;
+            --text-bright: #fff;
+
+            /* Faber-Castell Astro-Map Kleuren */
+            --fc-helio: #00A5A8;   
+            --fc-scarlet: #CB2821; 
+            --fc-cadmium: #FFB000; 
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-bright);
+            font-family: 'Courier New', monospace;
+            width: 100vw; 
+            height: 100vh;
+            overflow: hidden;
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+        }
+
+        /* --- BOOTMASTER SCREEN --- */
+        #bootScreen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        #bootTerminal {
+            width: 80%; max-width: 800px; height: 60%;
+            color: var(--emerald); font-size: 14px; line-height: 1.5;
+            overflow-y: hidden; text-shadow: 0 0 5px var(--emerald);
+        }
+        .boot-btn {
+            background: transparent; border: 2px solid var(--cyan); color: var(--cyan);
+            padding: 15px 40px; font-size: 18px; font-family: inherit; font-weight: bold;
+            letter-spacing: 5px; cursor: pointer; display: none; text-transform: uppercase;
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.2); transition: 0.3s; margin-top: 20px;
+        }
+        .boot-btn:hover { background: var(--cyan); color: #000; box-shadow: 0 0 40px rgba(0, 210, 255, 0.6); }
+
+        /* --- MAIN DASHBOARD --- */
+        .dashboard {
+            /* Gebruik Viewport Width (vw) om flexbox compressie te voorkomen */
+            width: 96vw; 
+            max-width: 1600px; 
+            height: 96vh;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-dim);
+            padding: 20px; box-sizing: border-box;
+            display: none;
+            /* Stabiele grid layout met een minimale breedte voor de radar */
+            grid-template-columns: 320px minmax(300px, 1fr) 380px;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+            box-shadow: 0 0 50px rgba(0, 165, 168, 0.05);
+            animation: fadeIn 2s ease-in-out;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; filter: blur(10px); } to { opacity: 1; filter: blur(0); } }
+
+        /* HEADER */
+        .header {
+            grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border-dim); padding-bottom: 15px;
+        }
+        .header h1 { margin: 0; color: var(--cyan); font-size: 20px; letter-spacing: 5px; font-weight: normal; }
+        
+        .controls { display: flex; gap: 10px; }
+        .btn-action {
+            background: transparent; border: 1px solid var(--emerald); color: var(--emerald);
+            padding: 10px 20px; font-family: inherit; font-size: 11px; letter-spacing: 1px;
+            cursor: pointer; transition: 0.2s; text-transform: uppercase; font-weight: bold;
+        }
+        .btn-action:hover:not(:disabled) { background: var(--emerald); color: #000; }
+        .btn-action.offline { border-color: var(--amber); color: var(--amber); }
+
+        /* PANELS */
+        .left-panel, .right-panel { display: flex; flex-direction: column; gap: 15px; overflow-y: auto; padding-right: 5px;}
+        
+        .card { background: #040404; border: 1px solid var(--border-dim); padding: 15px; position: relative; }
+        .card::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 3px; }
+        .card.cyan::before { background: var(--cyan); }
+        .card.magenta::before { background: var(--magenta); }
+        .card.emerald::before { background: var(--emerald); }
+        .card.amber::before { background: var(--amber); }
+        .card.helio::before { background: var(--fc-helio); }
+
+        .card-label { font-size: 10px; color: var(--text-dim); letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase; }
+        .card-value { font-size: 24px; margin-bottom: 5px; font-weight: bold; }
+        .card-sub { font-size: 10px; color: var(--text-dim); }
+        
+        .text-cyan { color: var(--cyan); } .text-emerald { color: var(--emerald); }
+        .text-amber { color: var(--amber); } .text-helio { color: var(--fc-helio); }
+        .text-cadmium { color: var(--fc-cadmium); }
+
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; border-top: 1px dashed #222; padding-top: 10px;}
+        .data-val { font-size: 14px; color: #fff; }
+        
+        /* CENTER VECTOR RADAR */
+        .radar-container {
+            border: 1px solid var(--border-dim); background: #000;
+            position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
+            min-width: 300px; /* Forceert minimale breedte */
+        }
+        .overlay-label { position: absolute; top: 15px; left: 15px; border: 1px solid var(--fc-helio); color: var(--fc-helio); font-size: 10px; padding: 5px 10px; background: rgba(0,0,0,0.8); z-index: 10; white-space: nowrap; }
+        .overlay-legend { position: absolute; top: 15px; right: 15px; color: #aaa; font-size: 10px; z-index: 10; text-align: right; background: rgba(0,0,0,0.8); padding: 5px; border: 1px solid #222; white-space: nowrap; }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* RIGHT PANEL COMPONENTS */
+        select, input[type="file"] { width: 100%; font-size: 11px; color: var(--cyan); background: #0a0a0a; border: 1px solid var(--border-dim); padding: 8px; box-sizing: border-box; cursor: pointer; outline: none; margin-bottom: 10px; }
+        .image-box { border: 1px solid var(--border-dim); background: #000; height: 200px; position: relative; overflow: hidden; width: 100%; }
+        video { display: none; }
+        .terminal { background: #040404; border: 1px solid var(--border-dim); padding: 15px; font-size: 11px; color: var(--text-dim); line-height: 1.6; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; justify-content: flex-end; }
+    </style>
+</head>
+<body>
+
+    <div id="bootScreen">
+        <div id="bootTerminal"></div>
+        <button class="boot-btn" id="btnInitOS" onclick="startVortexOS()">INITIATE VORTEX v105.3</button>
+    </div>
+
+    <div class="dashboard" id="mainDashboard">
+        <div class="header">
+            <h1>VORTEX v105.3 // ASTRO-ENGINE MASTER</h1>
+            <div class="controls">
+                <button class="btn-action offline" id="btnPlay" onclick="toggleSystem()">▶ START AUDIO ENGINE</button>
+            </div>
+        </div>
+
+        <div class="left-panel">
+            <div class="card cyan">
+                <div class="card-label text-cyan">P2P SONARNET & ASTRO-SYNC</div>
+                <div class="text-cyan" style="font-size: 12px; margin-bottom: 10px; font-weight: bold;">ws://127.0.0.1:1880/vortex</div>
+                
+                <select id="roleSelect">
+                    <option value="sender">MASTER (Zender / Scanner)</option>
+                    <option value="receiver">NODE (Ontvanger / Resonator)</option>
+                </select>
+
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-action" id="btnInitNet" style="flex:1;" onclick="initNetwork()">1. INIT NETWERK</button>
+                    <button class="btn-action offline" id="btnTunnel" style="flex:1;" disabled onclick="openTunnel()">2. TUNNEL</button>
+                </div>
+            </div>
+
+            <div class="card helio">
+                <div class="card-label text-helio">VEGA LIVE TELEMETRIE</div>
+                <div class="card-value" style="font-size: 18px;" id="vegaPos">Alt: --° | Az: --°</div>
+                <div class="data-grid">
+                    <div><span class="card-sub">Decl. (Vast)</span><br><span class="data-val text-helio">+38.78°</span></div>
+                    <div><span class="card-sub">Lunaire Fase</span><br><span class="data-val text-cadmium" id="moonPhaseVal">-- %</span></div>
+                </div>
+            </div>
+            
+            <div class="card amber">
+                <div class="card-label text-amber">STRUCTURELE BETEGELING</div>
+                <div class="card-value" style="font-size: 18px;">51-Hoekig Radiaal</div>
+                <div class="card-sub text-amber">Schaal: <span id="lunarRcValue">166.66</span> (Live Sync)</div>
+            </div>
+
+            <div class="card emerald">
+                <div class="card-label">DOMINANT HARMONIC (HZ)</div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                    <div class="card-value text-emerald" id="freqValue">0.00 Hz</div>
+                    <div class="text-emerald" style="font-size: 32px; line-height: 1;" id="hebChar">א</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="radar-container" id="radarWrapper">
+            <div class="overlay-label">LIVE ASTRO-GEOMETRISCHE KAART</div>
+            <div class="overlay-legend">
+                <span style="color:var(--fc-helio)">★</span> Live Vega Positie<br>
+                <span style="color:var(--fc-cadmium)">◿</span> 108° Geo-As<br>
+                <span style="color:var(--amber)">◬</span> 51-Hoek
+            </div>
+            <canvas id="vectorCanvas"></canvas>
+        </div>
+
+        <div class="right-panel">
+            <div class="card emerald" style="padding-bottom: 5px;">
+                <div class="card-label text-emerald">INPUT BRON (V72 CAM / IMAGE)</div>
+                <select id="inputSelect" onchange="switchInputSource()">
+                    <option value="image">Statische Afbeelding (Upload)</option>
+                    <option value="camera">Live AR Camera (Geoptimaliseerd)</option>
+                </select>
+                
+                <input type="file" id="imageUpload" accept="image/*">
+                <video id="webcam" autoplay playsinline muted></video>
+
+                <div class="image-box" id="scanWrapper">
+                    <canvas id="scanCanvas"></canvas>
+                </div>
+            </div>
+
+            <div class="terminal" id="terminalLog">
+                <div style="color:var(--cyan)">> VORTEX v105.3 OS Geladen...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* =========================================================
+           1. BOOTMASTER LOGICA
+           ========================================================= */
+        const bootLines = [
+            "BIOS Date 04/05/26 14:00:00 Ver 09.01.00",
+            "CPU: Neural Core Quantum Engine, Speed: 4.8 GHz",
+            "Loading VORTEX OS...",
+            "NPM Package Manager: Injecting astronomy-engine@2.1.19... [OK]",
+            "Calibrating Coordinates (Laren, NL: Lat 52.25, Lon 5.22)... [OK]",
+            "Calculating 16π - π² (Modulus 40.4)... [OK]",
+            "Mapping 51-gon radial structures... [OK]",
+            "Synchronizing Vega Astrometry (RA: 18.615h, Decl: +38.78°)... [OK]",
+            "System Ready. Awaiting User Initiation."
+        ];
+
+        let bootIndex = 0;
+        const bootTerm = document.getElementById('bootTerminal');
+        
+        function typeBootSequence() {
+            if (bootIndex < bootLines.length) {
+                bootTerm.innerHTML += `<div>${bootLines[bootIndex]}</div>`;
+                bootIndex++;
+                setTimeout(typeBootSequence, Math.random() * 150 + 30);
+            } else {
+                document.getElementById('btnInitOS').style.display = 'block';
+            }
+        }
+        
+        window.onload = () => setTimeout(typeBootSequence, 300);
+
+        function startVortexOS() {
+            document.getElementById('bootScreen').style.display = 'none';
+            document.getElementById('mainDashboard').style.display = 'grid';
+            
+            initAudio(); 
+            logMsg("Boot sequence afgerond. Systeem operationeel.", true);
+
+            // START RENDER LOOP DIRECT (Radar tekent nu meteen!)
+            requestAnimationFrame(renderLoop);
+        }
+
+        /* =========================================================
+           2. ASTRONOMY ENGINE (NPM INTEGRATIE)
+           ========================================================= */
+        const observer = new Astronomy.Observer(52.256, 5.228, 10);
+        const VEGA_RA = 18.61565; 
+        const VEGA_DEC = 38.78369;
+
+        let liveVegaAlt = 0;
+        let liveVegaAz = 0;
+
+        function updateAstronomyData(date) {
+            const horizon = Astronomy.Horizon(date, observer, VEGA_RA, VEGA_DEC, 'normal');
+            liveVegaAlt = horizon.altitude;
+            liveVegaAz = horizon.azimuth;
+
+            const moonPhase = Astronomy.MoonPhase(date);
+
+            document.getElementById('vegaPos').innerText = `Alt: ${liveVegaAlt.toFixed(2)}° | Az: ${liveVegaAz.toFixed(2)}°`;
+            document.getElementById('moonPhaseVal').innerText = (moonPhase / 3.6).toFixed(1) + ' %';
+            
+            let drift = (moonPhase / 360) * 10 - 5;
+            document.getElementById('lunarRcValue').innerText = (166.66 + drift).toFixed(2);
+        }
+
+        /* =========================================================
+           3. SYSTEM GLOBALS & WEBRTC P2P
+           ========================================================= */
+        const HEB_ALPHABET = ['א','ב','ג','ד','ה','ו','ז','ח','ט','י','כ','ל','מ','נ','ס','ע','פ','צ','ק','ר','ש','ת'];
+        let isRunning = false; let time = 0; let scanX = 0; let inputMode = 'image';
+
+        const myID = "VTX-" + Math.random().toString(36).substr(2, 5);
+        let ws, pc, dc, role; let iceQueue = [];
+
+        const fcHelio = "#00A5A8", fcScarlet = "#CB2821", fcCadmium = "#FFB000", fcAmber = "rgba(255, 170, 0, 0.3)";
+
+        function logMsg(msg, isHighlight = false, isError = false) {
+            const term = document.getElementById('terminalLog');
+            const div = document.createElement('div');
+            div.innerText = `> ${msg}`;
+            if(isHighlight) div.style.color = "var(--emerald)";
+            if(isError) div.style.color = "var(--fc-scarlet)";
+            term.appendChild(div);
+            term.scrollTop = term.scrollHeight;
+        }
+
+        function initNetwork() {
+            role = document.getElementById('roleSelect').value;
+            try { ws = new WebSocket("ws://127.0.0.1:1880/vortex"); } 
+            catch(e) { logMsg("Websocket fout.", false, true); return; }
+
+            ws.onopen = () => {
+                logMsg("Verbonden met Signaling Server (WSS).", true);
+                setupWebRTC();
+                if (role === 'sender') { document.getElementById('btnTunnel').disabled = false; document.getElementById('btnTunnel').className = "btn-action"; }
+            };
+
+            ws.onmessage = async (e) => {
+                try {
+                    let msg = JSON.parse(e.data); let data = msg.payload ? msg.payload : msg;
+                    if (!data || data.senderID === myID) return; 
+
+                    if (data.type === 'offer' && role === 'receiver') {
+                        await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                        const answer = await pc.createAnswer(); await pc.setLocalDescription(answer);
+                        ws.send(JSON.stringify({ payload: { type: 'answer', answer: answer, senderID: myID } }));
+                        processIceQueue();
+                    } else if (data.type === 'answer' && role === 'sender') {
+                        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                        processIceQueue();
+                    } else if (data.candidate) {
+                        if (!pc.remoteDescription) iceQueue.push(data.candidate);
+                        else await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                    }
+                } catch(err) {}
+            };
+        }
+
+        function setupWebRTC() {
+            pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+            pc.onicecandidate = e => { if (e.candidate) ws.send(JSON.stringify({ payload: { candidate: e.candidate, senderID: myID } })); };
+            pc.onconnectionstatechange = () => {
+                if (pc.connectionState === 'connected') logMsg("P2P Tunnel GEOPEND.", true);
+            };
+            if (role === 'sender') { dc = pc.createDataChannel("vortex_data"); setupDCLogic(); } 
+            else { pc.ondatachannel = (e) => { dc = e.channel; setupDCLogic(); }; }
+        }
+
+        function setupDCLogic() {
+            dc.onopen = () => logMsg("DATAKANAAL OPEN: Live Sync Actief.", true);
+            dc.onmessage = (e) => {
+                if(role === 'receiver') {
+                    const data = JSON.parse(e.data); scanX = data.scanX; 
+                    if(data.maxLum > 5) {
+                        document.getElementById('freqValue').innerText = data.freq.toFixed(2) + " Hz";
+                        document.getElementById('hebChar').innerText = HEB_ALPHABET[data.dominantBand % 22];
+                        if (audioCtx && audioCtx.state === 'running' && bandGains[data.dominantBand]) {
+                            let normLum = data.maxLum / 255.0;
+                            bandGains[data.dominantBand].gain.value += (Math.pow(normLum, 2) * 0.4 - bandGains[data.dominantBand].gain.value) * 0.2;
+                            filters[data.dominantBand].Q.value = data.qVal;
+                        }
+                    }
+                }
+            };
+        }
+
+        async function processIceQueue() { while(iceQueue.length > 0) { try { await pc.addIceCandidate(new RTCIceCandidate(iceQueue.shift())); } catch(e) {} } }
+        async function openTunnel() { const offer = await pc.createOffer(); await pc.setLocalDescription(offer); ws.send(JSON.stringify({ payload: { type: 'offer', offer: offer, senderID: myID } })); }
+
+        /* =========================================================
+           4. AUDIO & CAMERA ENGINE
+           ========================================================= */
+        const vectorCanvas = document.getElementById('vectorCanvas'); const vCtx = vectorCanvas.getContext('2d');
+        const scanCanvas = document.getElementById('scanCanvas'); const sCtx = scanCanvas.getContext('2d');
+        const webcam = document.getElementById('webcam');
+        let imgObj = null;
+
+        // SMART RESIZE OBSERVER: Werkt altijd perfect, ongeacht schermgrootte
+        const resizeObserver = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                if (entry.target.id === 'radarWrapper') {
+                    vectorCanvas.width = entry.contentRect.width;
+                    vectorCanvas.height = entry.contentRect.height;
+                } else if (entry.target.id === 'scanWrapper') {
+                    scanCanvas.width = entry.contentRect.width;
+                    scanCanvas.height = entry.contentRect.height;
+                }
+            }
+        });
+        resizeObserver.observe(document.getElementById('radarWrapper'));
+        resizeObserver.observe(document.getElementById('scanWrapper'));
+
+        function switchInputSource() {
+            inputMode = document.getElementById('inputSelect').value;
+            if (inputMode === 'camera') { document.getElementById('imageUpload').style.display = 'none'; startCamera(); } 
+            else { document.getElementById('imageUpload').style.display = 'block'; stopCamera(); }
+        }
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 15 } } });
+                webcam.srcObject = stream;
+            } catch (err) { document.getElementById('inputSelect').value = 'image'; switchInputSource(); }
+        }
+        function stopCamera() { if (webcam.srcObject) { webcam.srcObject.getTracks().forEach(t => t.stop()); webcam.srcObject = null; } }
+        
+        document.getElementById('imageUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) { imgObj = new Image(); imgObj.src = event.target.result; }
+            reader.readAsDataURL(file);
+        });
+
+        function applyChromaticFilter(ctx, width, height) {
+            const imgData = ctx.getImageData(0, 0, width, height); const data = imgData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                const lum = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+                if (lum < 85) { data[i] = 0; data[i+1] = lum * 2.5; data[i+2] = 200 - lum; } 
+                else if (lum < 170) { data[i] = (lum - 85) * 3; data[i+1] = 220; data[i+2] = 0; } 
+                else { data[i] = 255; data[i+1] = 255 - ((lum - 170) * 3); data[i+2] = 0; }
+            }
+            ctx.putImageData(imgData, 0, 0);
+        }
+
+        let audioCtx, noiseSource, masterGain;
+        const NUM_BANDS = 16; const BASE_FREQ = 110.0; const filters = []; const bandGains = [];
+
+        function initAudio() {
+            if(audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain(); masterGain.gain.value = 0.5; masterGain.connect(audioCtx.destination);
+            const bufferSize = audioCtx.sampleRate * 2; const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+            noiseSource = audioCtx.createBufferSource(); noiseSource.buffer = noiseBuffer; noiseSource.loop = true; noiseSource.start(0);
+
+            for (let i = 0; i < NUM_BANDS; i++) {
+                const biquad = audioCtx.createBiquadFilter(); biquad.type = "bandpass"; biquad.frequency.value = BASE_FREQ * (i + 1); biquad.Q.value = 10;
+                const gainNode = audioCtx.createGain(); gainNode.gain.value = 0;
+                noiseSource.connect(biquad); biquad.connect(gainNode); gainNode.connect(masterGain);
+                filters.push(biquad); bandGains.push(gainNode);
+            }
+        }
+
+        function toggleSystem() {
+            isRunning = !isRunning;
+            const btn = document.getElementById('btnPlay');
+            if(isRunning) {
+                if(!audioCtx) initAudio();
+                if(audioCtx.state === 'suspended') audioCtx.resume();
+                btn.innerText = "▌▌ PAUZE SCANNER"; btn.className = "btn-action";
+            } else {
+                if(audioCtx) audioCtx.suspend();
+                btn.innerText = "▶ START AUDIO ENGINE"; btn.className = "btn-action offline";
+            }
+        }
+
+        /* =========================================================
+           5. MAIN RENDER LOOP (ASTROMETRY & SCANNER)
+           ========================================================= */
+        function drawVegaProjection(ctx, cx, cy, time) {
+            ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; ctx.fillRect(0, 0, vectorCanvas.width, vectorCanvas.height);
+            
+            // 51-Gon met dynamische maan-schaal
+            let dynamicRadius = parseFloat(document.getElementById('lunarRcValue').innerText) || 166.66;
+            ctx.beginPath(); ctx.strokeStyle = fcAmber; ctx.lineWidth = 1;
+            const angleStep = (2 * Math.PI) / 51;
+            for (let i = 0; i <= 51; i++) {
+                let currentAngle = i * angleStep + (time * 0.1); 
+                let x = cx + dynamicRadius * Math.cos(currentAngle); let y = cy + dynamicRadius * Math.sin(currentAngle);
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Hexagonaal Basisraster
+            ctx.strokeStyle = "rgba(0, 210, 255, 0.1)"; ctx.lineWidth = 1;
+            const modulus = 40.4;
+            for (let i = 1; i <= 6; i++) { ctx.beginPath(); ctx.arc(cx, cy, i * modulus, 0, Math.PI * 2); ctx.stroke(); }
+
+            // Geometrische Sleutel (108°)
+            const angle108 = 1.88496; 
+            ctx.beginPath(); ctx.strokeStyle = fcCadmium; ctx.lineWidth = 2;
+            ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(0) * dynamicRadius, cy + Math.sin(0) * dynamicRadius);
+            ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(angle108) * dynamicRadius, cy + Math.sin(angle108) * dynamicRadius);
+            ctx.stroke();
+
+            // REAL-TIME VEGA POSITIE UIT ASTRONOMY ENGINE
+            let azRad = (liveVegaAz - 90) * (Math.PI / 180);
+            let maxRadius = modulus * 5; 
+            let altRadius = (1 - (Math.max(0, liveVegaAlt) / 90)) * maxRadius;
+
+            let vegaX = cx + Math.cos(azRad) * altRadius;
+            let vegaY = cy + Math.sin(azRad) * altRadius;
+
+            ctx.beginPath(); ctx.fillStyle = fcHelio; ctx.shadowColor = fcHelio; ctx.shadowBlur = 15;
+            ctx.arc(vegaX, vegaY, 6, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; 
+            
+            ctx.beginPath(); ctx.strokeStyle = "rgba(0, 165, 168, 0.4)"; ctx.setLineDash([2, 4]);
+            ctx.moveTo(cx, cy); ctx.lineTo(vegaX, vegaY); ctx.stroke(); ctx.setLineDash([]);
+        }
+
+        function renderLoop() {
+            time += 0.015;
+
+            // Update astrometrie en teken radar (Dit draait nu ALTIJD!)
+            updateAstronomyData(new Date());
+            drawVegaProjection(vCtx, vectorCanvas.width/2, vectorCanvas.height/2, time);
+
+            // Teken de webcam/image source
+            if (!role || role === 'sender') {
+                sCtx.clearRect(0, 0, scanCanvas.width, scanCanvas.height);
+                
+                if (inputMode === 'camera' && webcam.readyState === webcam.HAVE_ENOUGH_DATA) {
+                    const ratio = Math.max(scanCanvas.width / webcam.videoWidth, scanCanvas.height / webcam.videoHeight);
+                    const cw = webcam.videoWidth * ratio; const ch = webcam.videoHeight * ratio;
+                    sCtx.drawImage(webcam, (scanCanvas.width - cw)/2, (scanCanvas.height - ch)/2, cw, ch);
+                } else if (inputMode === 'image' && imgObj) {
+                    const ratio = Math.min(scanCanvas.width / imgObj.width, scanCanvas.height / imgObj.height);
+                    const w = imgObj.width * ratio; const h = imgObj.height * ratio;
+                    sCtx.drawImage(imgObj, (scanCanvas.width - w) / 2, (scanCanvas.height - h) / 2, w, h);
+                }
+
+                // Doe zware beeld/audio verwerking ALLEEN als de motor aan staat
+                if (isRunning && scanCanvas.width > 0) {
+                    let rawData = sCtx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
+                    applyChromaticFilter(sCtx, scanCanvas.width, scanCanvas.height);
+
+                    const chunkHeight = Math.floor(scanCanvas.height / NUM_BANDS);
+                    let maxLum = 0; let dominantBand = 0;
+
+                    for (let i = 0; i < NUM_BANDS; i++) {
+                        let bandLum = 0;
+                        for (let y = i * chunkHeight; y < (i + 1) * chunkHeight; y += 2) { 
+                            const idx = ((y * scanCanvas.width) + Math.floor(scanX)) * 4;
+                            bandLum += (rawData.data[idx] * 0.299) + (rawData.data[idx+1] * 0.587) + (rawData.data[idx+2] * 0.114);
+                        }
+                        bandLum /= (chunkHeight / 2);
+                        if (bandLum > maxLum) { maxLum = bandLum; dominantBand = i; }
+
+                        const normLum = bandLum / 255.0;
+                        if (audioCtx && audioCtx.state === 'running') {
+                            bandGains[i].gain.value += (Math.pow(normLum, 2) * 0.4 - bandGains[i].gain.value) * 0.2;
+                            filters[i].Q.value = 10 + (normLum * (390 % 40.4) * 10); 
+                        }
+                    }
+
+                    let calculatedQ = Math.floor(10 + ((maxLum / 255) * 390));
+                    
+                    if (maxLum > 5) {
+                        document.getElementById('freqValue').innerText = filters[dominantBand].frequency.value.toFixed(2) + " Hz";
+                        document.getElementById('hebChar').innerText = HEB_ALPHABET[dominantBand % 22];
+                    }
+
+                    if (dc && dc.readyState === 'open') {
+                        dc.send(JSON.stringify({ 
+                            scanX: scanX, maxLum: maxLum, dominantBand: dominantBand, 
+                            freq: filters[dominantBand].frequency.value, qVal: calculatedQ 
+                        }));
+                    }
+
+                    scanX += 2;
+                    if (scanX >= scanCanvas.width) scanX = 0;
+                }
+            }
+
+            // Teken de rode scanlijn (als referentie, beweegt mee met de scanner)
+            sCtx.beginPath(); sCtx.strokeStyle = fcScarlet; sCtx.lineWidth = 2;
+            sCtx.moveTo(scanX, 0); sCtx.lineTo(scanX, scanCanvas.height); sCtx.stroke();
+
+            // Loop blijft doorgaan
+            requestAnimationFrame(renderLoop);
+        }
+    </script>
+</body>
+</html>

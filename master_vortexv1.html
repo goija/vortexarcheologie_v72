@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX v105 // LIDIT-FASE MASTER</title>
+    <style>
+        :root {
+            --cyan: #00d2ff;
+            --magenta: #ff00ff;
+            --emerald: #00ea69;
+            --amber: #ffaa00;
+            --bg-color: #020202;
+            --panel-bg: #07070a;
+            --border-dim: #1a1a1a;
+            --text-dim: #666;
+            --text-bright: #fff;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-bright);
+            font-family: 'Courier New', monospace;
+            min-height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        .dashboard {
+            width: 98%; max-width: 1600px; height: 95vh;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-dim);
+            padding: 20px; box-sizing: border-box;
+            display: grid;
+            grid-template-columns: 320px 1fr 380px;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+            box-shadow: 0 0 50px rgba(0, 210, 255, 0.05);
+        }
+
+        /* HEADER */
+        .header {
+            grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border-dim); padding-bottom: 15px;
+        }
+        .header h1 { margin: 0; color: var(--cyan); font-size: 20px; letter-spacing: 5px; font-weight: normal; }
+        
+        .controls { display: flex; gap: 10px; }
+        .btn-action {
+            background: transparent; border: 1px solid var(--emerald); color: var(--emerald);
+            padding: 10px 20px; font-family: inherit; font-size: 12px; letter-spacing: 2px;
+            cursor: pointer; transition: 0.2s; text-transform: uppercase;
+        }
+        .btn-action:hover { background: var(--emerald); color: #000; }
+        .btn-action.offline { border-color: var(--amber); color: var(--amber); }
+
+        /* PANELS */
+        .left-panel, .right-panel { display: flex; flex-direction: column; gap: 15px; overflow-y: auto;}
+        
+        .card {
+            background: #040404; border: 1px solid var(--border-dim); padding: 15px; position: relative;
+        }
+        .card::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 3px; }
+        .card.cyan::before { background: var(--cyan); }
+        .card.magenta::before { background: var(--magenta); }
+        .card.emerald::before { background: var(--emerald); }
+        .card.amber::before { background: var(--amber); }
+
+        .card-label { font-size: 10px; color: var(--text-dim); letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase; }
+        .card-value { font-size: 28px; margin-bottom: 5px; font-weight: bold; }
+        .card-sub { font-size: 10px; color: var(--text-dim); }
+        
+        .text-cyan { color: var(--cyan); }
+        .text-emerald { color: var(--emerald); }
+        .text-amber { color: var(--amber); }
+
+        /* LIDIT METRICS */
+        .lidit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; border-top: 1px dashed #222; padding-top: 10px;}
+        .lidit-val { font-size: 14px; color: #fff; }
+        
+        /* CENTER VECTOR RADAR */
+        .radar-container {
+            border: 1px solid var(--border-dim); background: #000;
+            position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
+        }
+        .overlay-label {
+            position: absolute; top: 15px; left: 15px; border: 1px solid var(--cyan);
+            color: var(--cyan); font-size: 10px; padding: 5px 10px; background: rgba(0,0,0,0.8); z-index: 10;
+        }
+        .overlay-legend {
+            position: absolute; top: 15px; right: 15px; color: #aaa; font-size: 10px; z-index: 10; text-align: right;
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* RIGHT PANEL COMPONENTS */
+        select, input[type="file"] {
+            width: 100%; font-size: 11px; color: var(--cyan); background: #0a0a0a;
+            border: 1px solid var(--border-dim); padding: 8px; box-sizing: border-box; cursor: pointer; outline: none; margin-bottom: 10px;
+        }
+
+        .image-box {
+            border: 1px solid var(--border-dim); background: #000;
+            height: 200px; position: relative; overflow: hidden;
+        }
+        
+        video { display: none; } /* Hidden, only used for data extraction */
+
+        .terminal {
+            background: #040404; border: 1px solid var(--border-dim);
+            padding: 15px; font-size: 11px; color: var(--text-dim); line-height: 1.6;
+            flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; justify-content: flex-end;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <div class="header">
+            <h1>VORTEX v105 // LIDIT-FASE MASTER</h1>
+            <div class="controls">
+                <button class="btn-action offline" id="btnPlay" onclick="toggleSystem()">▶ START AUDIO ENGINE</button>
+            </div>
+        </div>
+
+        <div class="left-panel">
+            <div class="card cyan">
+                <div class="card-label text-cyan">SONARNET UPLINK</div>
+                <div class="text-cyan" style="font-size: 12px; margin-bottom: 5px; font-weight: bold;">ws://127.0.0.1:1880/vortex</div>
+                <div class="card-sub">STATUS: <span class="text-amber" id="statusText">STANDBY</span></div>
+            </div>
+
+            <div class="card cyan">
+                <div class="card-label">LIDIT-FASE SYNCHRONISATIE</div>
+                <div class="card-value" style="font-size: 18px;">Noord-Spiraal Actief</div>
+                <div class="lidit-grid">
+                    <div><span class="card-sub">i-delta Stabiliteit</span><br><span class="lidit-val text-cyan">-0.0318</span></div>
+                    <div><span class="card-sub">Lunaire rc-waarde</span><br><span class="lidit-val text-cyan">8.485</span></div>
+                </div>
+            </div>
+
+            <div class="card magenta">
+                <div class="card-label">MERSENNE PRESSURE (Q-FACTOR)</div>
+                <div class="card-value" id="qValue">0</div>
+                <div class="card-sub">Peak Resonance Output</div>
+            </div>
+
+            <div class="card emerald">
+                <div class="card-label">DOMINANT HARMONIC (HZ)</div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                    <div class="card-value text-emerald" id="freqValue">0.00 Hz</div>
+                    <div class="text-emerald" style="font-size: 34px; line-height: 1;" id="hebChar">א</div>
+                </div>
+            </div>
+
+            <div class="card amber">
+                <div class="card-label">STRUCTURELE BETEGELING</div>
+                <div class="card-value" style="font-size: 20px;">51-Hoekig</div>
+                <div class="card-sub text-amber">Schaal: 166.66667</div>
+            </div>
+        </div>
+
+        <div class="radar-container" id="radarWrapper">
+            <div class="overlay-label">LIDIT-FASE VECTOR VELD</div>
+            <div class="overlay-legend">
+                <span style="color:var(--cyan)">▬</span> Noord-spiraal (Lidit-balans)<br>
+                <span style="color:#555">↑</span> Vector Drift (-0.0318)
+            </div>
+            <canvas id="vectorCanvas"></canvas>
+        </div>
+
+        <div class="right-panel">
+            <div class="card emerald" style="padding-bottom: 5px;">
+                <div class="card-label text-emerald">INPUT BRON (V72 CAM / IMAGE)</div>
+                <select id="inputSelect" onchange="switchInputSource()">
+                    <option value="image">Statische Afbeelding (Upload)</option>
+                    <option value="camera">Live AR Camera (V72 Engine)</option>
+                </select>
+                
+                <input type="file" id="imageUpload" accept="image/*">
+                <video id="webcam" autoplay playsinline muted></video>
+
+                <div class="image-box">
+                    <canvas id="scanCanvas"></canvas>
+                </div>
+            </div>
+
+            <div class="terminal" id="terminalLog">
+                <div>> VORTEX v105 OS Geladen...</div>
+                <div>> Lidit-Fase Vector Matrix Geïnitialiseerd.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. SYSTEM GLOBALS & UTILS ---
+        const HEB_ALPHABET = ['א','ב','ג','ד','ה','ו','ז','ח','ט','י','כ','ל','מ','נ','ס','ע','פ','צ','ק','ר','ש','ת'];
+        let isRunning = false;
+        let time = 0;
+        let scanX = 0;
+        let inputMode = 'image'; // 'image' or 'camera'
+
+        function logMsg(msg, isHighlight = false) {
+            const term = document.getElementById('terminalLog');
+            const div = document.createElement('div');
+            div.innerText = `> ${msg}`;
+            if(isHighlight) div.className = 'text-emerald';
+            term.appendChild(div);
+            term.scrollTop = term.scrollHeight;
+        }
+
+        // --- 2. CANVAS SETUP ---
+        const vectorCanvas = document.getElementById('vectorCanvas');
+        const vCtx = vectorCanvas.getContext('2d');
+        const scanCanvas = document.getElementById('scanCanvas');
+        const sCtx = scanCanvas.getContext('2d');
+        const webcam = document.getElementById('webcam');
+
+        function resizeCanvases() {
+            vectorCanvas.width = vectorCanvas.parentElement.clientWidth;
+            vectorCanvas.height = vectorCanvas.parentElement.clientHeight;
+            scanCanvas.width = scanCanvas.parentElement.clientWidth;
+            scanCanvas.height = scanCanvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvases);
+        resizeCanvases();
+
+        // --- 3. AUDIO ENGINE (FOURIER PMSon) ---
+        let audioCtx, noiseSource, masterGain;
+        const NUM_BANDS = 16;
+        const BASE_FREQ = 110.0;
+        const filters = [];
+        const bandGains = [];
+
+        async function initAudio() {
+            if(audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.5;
+            masterGain.connect(audioCtx.destination);
+
+            const bufferSize = audioCtx.sampleRate * 2;
+            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+            
+            noiseSource = audioCtx.createBufferSource();
+            noiseSource.buffer = noiseBuffer;
+            noiseSource.loop = true;
+            noiseSource.start(0);
+
+            for (let i = 0; i < NUM_BANDS; i++) {
+                const biquad = audioCtx.createBiquadFilter();
+                biquad.type = "bandpass";
+                biquad.frequency.value = BASE_FREQ * (i + 1);
+                biquad.Q.value = 10;
+
+                const gainNode = audioCtx.createGain();
+                gainNode.gain.value = 0;
+
+                noiseSource.connect(biquad);
+                biquad.connect(gainNode);
+                gainNode.connect(masterGain);
+
+                filters.push(biquad);
+                bandGains.push(gainNode);
+            }
+            logMsg("Fourier Chromatic Resonator Online. 16 Bands Actief.", true);
+        }
+
+        async function toggleSystem() {
+            if(!audioCtx) await initAudio();
+            isRunning = !isRunning;
+            const btn = document.getElementById('btnPlay');
+            
+            if(isRunning) {
+                if(audioCtx.state === 'suspended') audioCtx.resume();
+                btn.innerText = "▌▌ PAUZE SCANNER";
+                btn.className = "btn-action";
+                document.getElementById('statusText').innerText = "AUDIO ENGINE ACTIEF";
+                document.getElementById('statusText').className = "text-emerald";
+                renderLoop();
+            } else {
+                audioCtx.suspend();
+                btn.innerText = "▶ START AUDIO ENGINE";
+                btn.className = "btn-action offline";
+                document.getElementById('statusText').innerText = "STANDBY";
+                document.getElementById('statusText').className = "text-amber";
+            }
+        }
+
+        // --- 4. CAMERA & IMAGE INPUT (V72 INTEGRATION) ---
+        let imgObj = null;
+
+        function switchInputSource() {
+            inputMode = document.getElementById('inputSelect').value;
+            if (inputMode === 'camera') {
+                document.getElementById('imageUpload').style.display = 'none';
+                startCamera();
+            } else {
+                document.getElementById('imageUpload').style.display = 'block';
+                stopCamera();
+            }
+        }
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                webcam.srcObject = stream;
+                logMsg("V72 AR Camera Feed Gekoppeld.", true);
+            } catch (err) {
+                logMsg("Camera toegang geweigerd. Gebruik fallback afbeelding.");
+                document.getElementById('inputSelect').value = 'image';
+                switchInputSource();
+            }
+        }
+
+        function stopCamera() {
+            if (webcam.srcObject) {
+                webcam.srcObject.getTracks().forEach(track => track.stop());
+                webcam.srcObject = null;
+                logMsg("Camera Feed Ontkoppeld.");
+            }
+        }
+
+        // Image Upload Logic
+        document.getElementById('imageUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                imgObj = new Image();
+                imgObj.onload = () => {
+                    logMsg(`Dataset [${file.name}] succesvol geïnjecteerd.`, true);
+                };
+                imgObj.src = event.target.result;
+            }
+            reader.readAsDataURL(file);
+        });
+
+        // Chromatic Filter (Thermal Look)
+        function applyChromaticFilter(ctx, width, height) {
+            const imgData = ctx.getImageData(0, 0, width, height);
+            const data = imgData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                const lum = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+                if (lum < 85) {
+                    data[i] = 0; data[i+1] = lum * 3; data[i+2] = 255 - (lum * 3);
+                } else if (lum < 170) {
+                    data[i] = (lum - 85) * 3; data[i+1] = 255; data[i+2] = 0;
+                } else {
+                    data[i] = 255; data[i+1] = 255 - ((lum - 170) * 3); data[i+2] = 0;
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+        }
+
+        // --- 5. MAIN RENDER LOOP ---
+        function drawVectorField(ctx, cx, cy, time) {
+            ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+            ctx.fillRect(0, 0, vectorCanvas.width, vectorCanvas.height);
+
+            // Draw Vector Arrows (Lidit Drift)
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 1;
+            const spacing = 30;
+            
+            for (let x = -cx; x < cx; x += spacing) {
+                for (let y = -cy; y < cy; y += spacing) {
+                    // Wiskundige hoek gebaseerd op positie en tijd (Spiral effect)
+                    let angle = Math.atan2(y, x) + (Math.PI / 2) + Math.sin(time * 0.5) * 0.2;
+                    let len = 6;
+                    
+                    let drawX = cx + x;
+                    let drawY = cy + y;
+
+                    ctx.beginPath();
+                    ctx.moveTo(drawX, drawY);
+                    ctx.lineTo(drawX + Math.cos(angle) * len, drawY + Math.sin(angle) * len);
+                    // Arrow head
+                    ctx.lineTo(drawX + Math.cos(angle - 0.5) * (len-3), drawY + Math.sin(angle - 0.5) * (len-3));
+                    ctx.stroke();
+                }
+            }
+
+            // Draw Cyan Lidit Spiral (rc: 8.485)
+            ctx.strokeStyle = "var(--cyan)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            let maxTheta = Math.PI * 6; // 3 full turns
+            for (let theta = 0; theta < maxTheta; theta += 0.1) {
+                // R = a + b * theta (Archimedean spiral)
+                let r = 8.485 * theta; 
+                let sx = cx + r * Math.cos(theta - time * 2);
+                let sy = cy + r * Math.sin(theta - time * 2);
+                
+                if (theta === 0) ctx.moveTo(sx, sy);
+                else ctx.lineTo(sx, sy);
+            }
+            ctx.stroke();
+        }
+
+        function renderLoop() {
+            if (!isRunning) return;
+            time += 0.02;
+
+            // 1. Vector Radar
+            drawVectorField(vCtx, vectorCanvas.width/2, vectorCanvas.height/2, time);
+
+            // 2. Scan Input (Camera or Image)
+            sCtx.clearRect(0, 0, scanCanvas.width, scanCanvas.height);
+            
+            if (inputMode === 'camera' && webcam.readyState === webcam.HAVE_ENOUGH_DATA) {
+                // Draw Camera cover
+                const hRatio = scanCanvas.width / webcam.videoWidth;
+                const vRatio = scanCanvas.height / webcam.videoHeight;
+                const ratio = Math.max(hRatio, vRatio);
+                const cw = webcam.videoWidth * ratio;
+                const ch = webcam.videoHeight * ratio;
+                sCtx.drawImage(webcam, (scanCanvas.width - cw)/2, (scanCanvas.height - ch)/2, cw, ch);
+            } else if (inputMode === 'image' && imgObj) {
+                const ratio = Math.min(scanCanvas.width / imgObj.width, scanCanvas.height / imgObj.height);
+                const w = imgObj.width * ratio; const h = imgObj.height * ratio;
+                sCtx.drawImage(imgObj, (scanCanvas.width - w) / 2, (scanCanvas.height - h) / 2, w, h);
+            }
+
+            // Get raw data for Audio Engine before applying filter
+            let rawData = sCtx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
+            
+            // Apply visual filter
+            applyChromaticFilter(sCtx, scanCanvas.width, scanCanvas.height);
+
+            // Draw Scan Line
+            sCtx.beginPath();
+            sCtx.strokeStyle = "rgba(0, 234, 105, 0.9)"; // Emerald scanline
+            sCtx.lineWidth = 2;
+            sCtx.moveTo(scanX, 0);
+            sCtx.lineTo(scanX, scanCanvas.height);
+            sCtx.stroke();
+
+            // 3. Audio Extraction & Parameter Mapping
+            const chunkHeight = Math.floor(scanCanvas.height / NUM_BANDS);
+            let maxLum = 0; let dominantBand = 0;
+
+            for (let i = 0; i < NUM_BANDS; i++) {
+                let bandLum = 0;
+                for (let y = i * chunkHeight; y < (i + 1) * chunkHeight; y++) {
+                    const idx = ((y * scanCanvas.width) + Math.floor(scanX)) * 4;
+                    bandLum += (rawData.data[idx] * 0.299) + (rawData.data[idx+1] * 0.587) + (rawData.data[idx+2] * 0.114);
+                }
+                bandLum /= chunkHeight;
+
+                if (bandLum > maxLum) { maxLum = bandLum; dominantBand = i; }
+
+                const normLum = bandLum / 255.0;
+                if (audioCtx && audioCtx.state === 'running') {
+                    bandGains[i].gain.value += (Math.pow(normLum, 2) * 0.4 - bandGains[i].gain.value) * 0.2;
+                    filters[i].Q.value = 10 + (normLum * 390);
+                }
+            }
+
+            // Update UI Metrics
+            if (maxLum > 5) {
+                document.getElementById('qValue').innerText = Math.floor(10 + ((maxLum / 255) * 390));
+                document.getElementById('freqValue').innerText = filters[dominantBand].frequency.value.toFixed(2) + " Hz";
+                document.getElementById('hebChar').innerText = HEB_ALPHABET[dominantBand % 22];
+            }
+
+            scanX += 2;
+            if (scanX >= scanCanvas.width) scanX = 0;
+
+            requestAnimationFrame(renderLoop);
+        }
+    </script>
+</body>
+</html>

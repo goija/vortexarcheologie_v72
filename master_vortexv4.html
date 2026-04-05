@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>VORTEX v106.1 // OCTERACT TARGETING</title>
+    <style>
+        :root {
+            --bg-dark: #050505; --panel-bg: #0a0a0a; --border-color: #1f1f1f;
+            --accent-cyan: #00e5ff; --accent-green: #00e676; --accent-red: #ff3d00;
+            --accent-yellow: #ffea00; --font-mono: 'Courier New', monospace;
+        }
+        body { background: var(--bg-dark); color: #e0e0e0; font-family: var(--font-mono); margin: 0; overflow: hidden; display: grid; grid-template-rows: 60px 1fr; height: 100vh; }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--border-color); background: #000; }
+        main { display: grid; grid-template-columns: 350px 1fr 350px; gap: 20px; padding: 20px; height: calc(100vh - 100px); }
+        .panel { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+        canvas { width: 100%; height: 100%; background: radial-gradient(circle, #0a0a0a 0%, #000 100%); }
+        .stats { font-size: 0.8em; color: var(--accent-green); display: flex; justify-content: space-between; }
+        .highlight { color: var(--accent-yellow); font-weight: bold; }
+        #terminal { font-size: 0.72em; color: var(--accent-green); background: #000; padding: 10px; flex-grow: 1; overflow-y: auto; border: 1px solid #111; line-height: 1.4; }
+        .tag { padding: 2px 5px; border-radius: 3px; font-size: 0.7em; font-weight: bold; }
+        .tag-vega { background: var(--accent-cyan); color: #000; }
+        .tag-iss { background: var(--accent-green); color: #000; }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="color: var(--accent-cyan); font-weight: bold;">VORTEX v106.1 // OCTERACT TARGETING SYSTEM</div>
+        <div id="sys-clock" style="color: var(--accent-yellow);">SYNCING...</div>
+        <div id="status-link" style="color: var(--accent-green); font-size: 0.8em;">[ LINK: ACTIVE ]</div>
+    </header>
+    <main>
+        <div class="panel">
+            <div style="color: var(--accent-cyan); font-size: 0.8em; border-bottom: 1px solid #222; padding-bottom: 5px;">8D TELEMETRY HUB</div>
+            
+            <div style="margin-top: 10px;">
+                <span class="tag tag-vega">TARGET: VEGA</span>
+                <div class="stats"><span>ALT:</span><span class="highlight">4.31°</span></div>
+                <div class="stats"><span>AZ:</span><span class="highlight">338.87°</span></div>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <span class="tag tag-iss">TARGET: ISS 25544</span>
+                <div class="stats"><span>ALT:</span><span id="iss-alt" class="highlight">--.--°</span></div>
+                <div class="stats"><span>AZ:</span><span id="iss-az" class="highlight">--.--°</span></div>
+                <div class="stats"><span>VEL:</span><span id="iss-vel" class="highlight">0 km/h</span></div>
+            </div>
+
+            <div style="margin-top: 20px; border-top: 1px solid #222; padding-top: 10px;">
+                <div style="color: var(--accent-yellow); font-size: 0.7em;">DOPPLER HARMONIC [80-BIT]</div>
+                <div id="val-freq" style="font-size: 1.4em; color: var(--accent-green);">689.0300 Hz</div>
+            </div>
+        </div>
+
+        <div class="panel" style="padding:0; position: relative;">
+            <canvas id="hyperCanvas"></canvas>
+            <div style="position: absolute; bottom: 10px; left: 10px; color: rgba(255,255,255,0.2); font-size: 0.6em;">HEX-GRID TESSELATION OVER 8-DIMENSIONAL EDGES</div>
+        </div>
+
+        <div class="panel">
+            <div style="color: var(--accent-cyan); font-size: 0.8em;">LOG STREAM</div>
+            <div id="terminal"></div>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('hyperCanvas');
+        const ctx = canvas.getContext('2d');
+        const terminal = document.getElementById('terminal');
+        
+        let state = {
+            vega: { alt: 4.31, az: 338.87, color: '#00e5ff' },
+            iss: { alt: 0, az: 0, vel: 0, color: '#00e676' },
+            freq: 689.03
+        };
+
+        function log(m, c="") {
+            const d = document.createElement('div');
+            if(c) d.style.color = c;
+            d.innerHTML = `> [${new Date().toLocaleTimeString()}] ${m}`;
+            terminal.appendChild(d);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        // 1. Genereer 256 hoekpunten voor 8D
+        const vertices8D = [];
+        for (let i = 0; i < 256; i++) {
+            let v = [];
+            for (let j = 0; j < 8; j++) v[j] = (i >> j & 1) ? 1 : -1;
+            vertices8D.push(v);
+        }
+
+        const edges = [];
+        for (let i = 0; i < 256; i++) {
+            for (let j = i + 1; j < 256; j++) {
+                let diff = 0;
+                for (let k = 0; k < 8; k++) if (vertices8D[i][k] !== vertices8D[j][k]) diff++;
+                if (diff === 1) edges.push([i, j]);
+            }
+        }
+
+        let angles = new Array(28).fill(0);
+
+        function project(v8) {
+            let curr = [...v8];
+            let idx = 0;
+            for (let i = 0; i < 8; i++) {
+                for (let j = i + 1; j < 8; j++) {
+                    let theta = angles[idx++];
+                    let x = curr[i], y = curr[j];
+                    curr[i] = x * Math.cos(theta) - y * Math.sin(theta);
+                    curr[j] = x * Math.sin(theta) + y * Math.cos(theta);
+                }
+            }
+            const scale = Math.min(canvas.width, canvas.height) * 0.35;
+            const factor = 2 / (4 + curr[7]); 
+            return { x: curr[0] * factor * scale, y: curr[1] * factor * scale, z: curr[2] };
+        }
+
+        async function fetchISS() {
+            try {
+                const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+                const data = await res.json();
+                state.iss.az = data.longitude + 180;
+                state.iss.alt = Math.abs(data.latitude);
+                state.iss.vel = data.velocity;
+                
+                document.getElementById('iss-alt').innerText = state.iss.alt.toFixed(2) + "°";
+                document.getElementById('iss-az').innerText = state.iss.az.toFixed(2) + "°";
+                document.getElementById('iss-vel').innerText = Math.round(state.iss.vel) + " km/h";
+                
+                // Doppler shift effect
+                state.freq = 689.03 + (state.iss.vel / 30000);
+                document.getElementById('val-freq').innerText = state.freq.toFixed(4) + " Hz";
+                
+                log(`ISS Telemetry Synced: Pos(${data.latitude.toFixed(2)}, ${data.longitude.toFixed(2)})`);
+            } catch(e) { log("API Link Timeout", "#ff3d00"); }
+        }
+
+        function draw() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            const cx = canvas.width / 2, cy = canvas.height / 2;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Hyper-rotatie base
+            for (let i = 0; i < 28; i++) angles[i] += 0.003;
+
+            // Teken Edges
+            ctx.lineWidth = 0.6;
+            edges.forEach(edge => {
+                const p1 = project(vertices8D[edge[0]]);
+                const p2 = project(vertices8D[edge[1]]);
+                const depth = (p1.z + p2.z + 4) / 8;
+                ctx.strokeStyle = `rgba(0, 229, 255, ${depth * 0.2})`;
+                ctx.beginPath(); ctx.moveTo(cx + p1.x, cy + p1.y); ctx.lineTo(cx + p2.x, cy + p2.y); ctx.stroke();
+            });
+
+            // Target Mapping (Vega & ISS)
+            [state.vega, state.iss].forEach((target, index) => {
+                const azRad = (target.az / 360) * Math.PI * 2;
+                const altRad = (target.alt / 90) * (Math.PI / 2);
+                
+                // Mappen naar een 8D-vector punt
+                const vTarget = [
+                    Math.cos(azRad), Math.sin(azRad), 
+                    Math.sin(altRad), Math.cos(altRad),
+                    index === 0 ? 1 : -1, index === 0 ? -1 : 1, 0, 0
+                ];
+                
+                const p = project(vTarget);
+                
+                // Teken Target Marker
+                ctx.fillStyle = target.color;
+                ctx.shadowBlur = 15; ctx.shadowColor = target.color;
+                ctx.beginPath(); ctx.arc(cx + p.x, cy + p.y, 6, 0, Math.PI*2); ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Label
+                ctx.font = "10px Courier New";
+                ctx.fillText(index === 0 ? "VEGA" : "ISS", cx + p.x + 10, cy + p.y);
+            });
+
+            requestAnimationFrame(draw);
+        }
+
+        setInterval(fetchISS, 3000);
+        setInterval(() => { document.getElementById('sys-clock').innerText = new Date().toISOString().substring(11, 19) + " UTC"; }, 1000);
+        
+        log("Octeract Kernel v106.1 Loaded.");
+        log("8D Projection Matrix active.");
+        log("Targeting Vega (Fixed) and ISS (Dynamic)...", "#ffea00");
+        draw();
+    </script>
+</body>
+</html>
