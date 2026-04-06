@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>VORTEX Tesselation v4 // Perfect Alignment</title>
+    <style>
+        :root {
+            --unit: 166.66667px;
+            --bg: #050505;
+        }
+        body { margin: 0; background-color: var(--bg); overflow: hidden; }
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, var(--unit));
+            grid-template-rows: repeat(auto-fill, var(--unit));
+            width: 100vw; height: 100vh;
+        }
+        .tile { width: var(--unit); height: var(--unit); }
+        svg { width: 100.2%; height: 100.2%; display: block; } /* Minimale overlap tegen kieren */
+
+        /* De logica voor de passed flip en polar flip */
+        .mirror { transform: scaleX(-1); }
+        .polar { transform: scaleY(-1); }
+        .both { transform: scale(-1, -1); }
+    </style>
+</head>
+<body>
+
+<div id="grid"></div>
+
+<svg style="display: none;">
+    <symbol id="vortex-unit" viewBox="0 0 100 100">
+        <rect width="100" height="100" fill="#e9c46a"/>
+        
+        <polygon points="0,0 50,50 0,100" fill="#2a9d8f"/>
+        
+        <polygon points="100,0 50,50 100,100" fill="#2a9d8f"/>
+        
+        <polygon points="0,0 50,50 100,0" fill="#c1497b"/>
+        <polygon points="0,100 50,50 100,100" fill="#c1497b"/>
+    </symbol>
+</svg>
+
+<script>
+    const grid = document.getElementById('grid');
+    const unitSize = 166.66667;
+
+    function buildVortex() {
+        grid.innerHTML = '';
+        const cols = Math.ceil(window.innerWidth / unitSize);
+        const rows = Math.ceil(window.innerHeight / unitSize);
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const tile = document.createElement('div');
+                tile.className = 'tile';
+
+                const isOddCol = c % 2 !== 0;
+                const isOddRow = r % 2 !== 0;
+
+                // Om-en-om flippen voor de naadloze aansluiting
+                if (isOddCol && !isOddRow) tile.classList.add('mirror');
+                if (!isOddCol && isOddRow) tile.classList.add('polar');
+                if (isOddCol && isOddRow) tile.classList.add('both');
+
+                tile.innerHTML = `<svg><use href="#vortex-unit"/></svg>`;
+                grid.appendChild(tile);
+            }
+        }
+    }
+
+    window.onresize = buildVortex;
+    buildVortex();
+</script>
+
+</body>
+</html>
