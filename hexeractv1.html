@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VORTEX v110.19 // QUATERNION HEXERACT</title>
+    <style>
+        :root {
+            --bg-dark: #050505; --panel-bg: #0a0a0a; --border-color: #1f1f1f;
+            --accent-cyan: #00e5ff; --accent-green: #00e676; --accent-yellow: #ffea00; 
+            --accent-red: #ff3d00; --accent-orange: #ff9100; --accent-purple: #e1b1ff; 
+            --font-mono: 'Courier New', monospace;
+        }
+        body { background: var(--bg-dark); color: #e0e0e0; font-family: var(--font-mono); margin: 0; overflow: hidden; display: grid; grid-template-rows: 60px 1fr; height: 100vh; }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--border-color); background: #000; z-index: 10; }
+        main { display: grid; grid-template-columns: 320px 1fr 320px; gap: 10px; padding: 10px; height: calc(100vh - 60px); box-sizing: border-box; }
+        
+        .panel { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 12px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+        .section-title { color: var(--accent-cyan); font-size: 0.7em; text-transform: uppercase; border-bottom: 1px solid #222; padding-bottom: 3px; }
+        
+        #canvas-container { flex-grow: 1; width: 100%; height: 100%; position: relative; cursor: crosshair; overflow: hidden; background: #000; border: 1px solid #111; }
+        #cosmicCanvas { width: 100%; height: 100%; display: block; }
+        
+        .mobile-nav { position: absolute; right: 15px; bottom: 25px; display: flex; flex-direction: column; gap: 12px; z-index: 100; }
+        .m-btn { width: 60px; height: 60px; background: rgba(0,0,0,0.8); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); font-size: 28px; display: flex; align-items: center; justify-content: center; border-radius: 10px; touch-action: manipulation; }
+
+        button { background: transparent; color: var(--accent-cyan); border: 1px solid var(--accent-cyan); padding: 8px; font-family: var(--font-mono); cursor: pointer; font-size: 0.65em; transition: 0.2s; text-transform: uppercase; font-weight: bold; }
+        button:hover { background: rgba(0, 229, 255, 0.1); }
+        button.active { background: var(--accent-yellow); color: #000; border-color: var(--accent-yellow); }
+        
+        .rec-btn { border-color: var(--accent-red); color: var(--accent-red); }
+        .rec-btn:hover { background: rgba(255, 61, 0, 0.1); }
+        .rec-btn.recording { background: var(--accent-red); color: #fff; animation: pulseRed 1.5s infinite; }
+        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(255,61,0,0.7); } 70% { box-shadow: 0 0 0 10px rgba(255,61,0,0); } 100% { box-shadow: 0 0 0 0 rgba(255,61,0,0); } }
+
+        .tex-btn { border-color: var(--accent-purple); color: var(--accent-purple); margin-top: 10px; }
+        .tex-btn:hover { background: rgba(225, 177, 255, 0.1); }
+
+        .data-row { display: flex; justify-content: space-between; font-size: 0.75em; border-bottom: 1px solid #1a1a1a; padding: 2px 0; }
+        
+        .checkbox-group { display: flex; align-items: center; gap: 8px; font-size: 0.75em; cursor: pointer; color: #ddd; margin-top: 5px;}
+        .checkbox-group input { cursor: pointer; accent-color: var(--accent-cyan); }
+
+        @media (max-width: 1024px) {
+            body { display: block; overflow-y: auto; }
+            main { display: flex; flex-direction: column; height: auto; }
+            #canvas-container { height: 65vh; }
+            header { flex-direction: column; height: auto; padding: 10px; gap: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="color: var(--accent-cyan); font-weight: bold;">VORTEX v110.19 // QUATERNION HEXERACT</div>
+        <div id="sys-clock" style="color: var(--accent-yellow);">00:00:00</div>
+        <div style="display: flex; gap: 8px;">
+            <button id="btn-audio">AUDIO</button>
+            <button id="btn-record" class="rec-btn">⏺ OPNAME</button>
+            <button id="btn-luna" style="border-color:#fff; color:#fff;">☾ MAAN FOCUS</button>
+        </div>
+    </header>
+    <main>
+        <div class="panel">
+            <div class="section-title">B(6,2) SHIFT-LEFT PARTITIE</div>
+            <div class="data-row"><span>DIMENSIES:</span><span style="color:var(--accent-purple)">6D (Hexeract)</span></div>
+            <div class="data-row"><span>KNOOPPUNTEN:</span><span style="color:#fff">64 (Lila)</span></div>
+            <div class="data-row"><span>RIBBEN:</span><span style="color:var(--accent-yellow)">192 (Neon Geel)</span></div>
+            <div class="data-row"><span>Y-AS ORDENING:</span><span style="color:#aaa;">Hamming Weight (1's)</span></div>
+            <div class="data-row"><span>XZ-VLAK:</span><span style="color:#aaa;">SHL Equivalentieklassen</span></div>
+            <div class="data-row"><span>ROTATIE ENGINE:</span><span style="color:var(--accent-cyan)">Quaternions (Gimbal-vrij)</span></div>
+            
+            <label class="checkbox-group" style="margin-top: 15px;">
+                <input type="checkbox" id="auto-rotate" checked>
+                <span style="color: var(--accent-cyan);">AUTOMATISCHE QUATERNION ROTATIE</span>
+            </label>
+
+            <div class="section-title" style="margin-top: 20px;">LIVE EPHEMERIS</div>
+            <div class="data-row"><span>ZON:</span><span id="d-sun" style="color:var(--accent-yellow)">--° / --°</span></div>
+            <div class="data-row"><span>MAAN:</span><span id="d-moon" style="color:#fff">--° / --°</span></div>
+            <div class="data-row"><span>FASE:</span><span id="l-ph" style="color:#aaa;">--%</span></div>
+        </div>
+
+        <div class="panel" style="padding:0;">
+            <div id="canvas-container">
+                <canvas id="cosmicCanvas"></canvas>
+                <div id="rec-indicator" style="position:absolute; top:15px; right:15px; color:var(--accent-red); font-weight:bold; font-size:1.2em; display:none; animation: pulseRed 1s infinite; pointer-events:none;">
+                    REC ⏺
+                </div>
+                <div class="mobile-nav">
+                    <button class="m-btn" id="m-in">+</button>
+                    <button class="m-btn" id="m-out">−</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="section-title">TRANSFORMATIES & EXPORT</div>
+            <button id="btn-mirror" style="width: 100%;">MIRROR X-AS</button>
+            <button id="btn-polar" style="width: 100%; margin-top:5px;">POLAR INVERSIE</button>
+            <button id="btn-reset" style="width: 100%; border-color:#555; color:#888; margin-top:5px;">RESET VIEW</button>
+            
+            <button id="btn-tex" class="tex-btn" style="width: 100%;">📄 DATA.TEX EXPORT</button>
+
+            <div id="terminal" style="font-size: 0.6em; color: var(--accent-green); height: 120px; overflow-y: auto; margin-top: 20px; line-height: 1.4;">
+                > VORTEX 110.19 ONLINE...<br>
+                > QUATERNION KERNEL GELADEN...<br>
+                > B(6) PARTITIE VIA SHL GEREED.<br>
+                > HAMMING WEIGHT ORDENING ACTIEF.<br>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('cosmicCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+
+        function logTerminal(msg) {
+            const t = document.getElementById('terminal');
+            t.innerHTML = `> [${new Date().toLocaleTimeString()}] ${msg}<br>` + t.innerHTML;
+        }
+
+        // --- QUATERNION WISKUNDE ENGINE ---
+        class Quaternion {
+            constructor(w=1, x=0, y=0, z=0) { this.w=w; this.x=x; this.y=y; this.z=z; }
+            multiply(q) {
+                return new Quaternion(
+                    this.w*q.w - this.x*q.x - this.y*q.y - this.z*q.z,
+                    this.w*q.x + this.x*q.w + this.y*q.z - this.z*q.y,
+                    this.w*q.y - this.x*q.z + this.y*q.w + this.z*q.x,
+                    this.w*q.z + this.x*q.y - this.y*q.x + this.z*q.w
+                );
+            }
+            conjugate() { return new Quaternion(this.w, -this.x, -this.y, -this.z); }
+            rotateVector(v) {
+                let vecQ = new Quaternion(0, v.x, v.y, v.z);
+                let res = this.multiply(vecQ).multiply(this.conjugate());
+                return { x: res.x, y: res.y, z: res.z };
+            }
+        }
+
+        function eulerToQuaternion(pitch, yaw, roll) {
+            let cy = Math.cos(yaw * 0.5), sy = Math.sin(yaw * 0.5);
+            let cp = Math.cos(pitch * 0.5), sp = Math.sin(pitch * 0.5);
+            let cr = Math.cos(roll * 0.5), sr = Math.sin(roll * 0.5);
+            return new Quaternion(
+                cr * cp * cy + sr * sp * sy,
+                sr * cp * cy - cr * sp * sy,
+                cr * sp * cy + sr * cp * sy,
+                cr * cp * sy - sr * sp * cy
+            );
+        }
+
+        // --- B(6,2) HEXERACT GENERATOR (SHL & HAMMING WEIGHT) ---
+        const nodes6D = [];
+        const edges6D = [];
+
+        function rotateLeft(val, bits) { return ((val << 1) | (val >> (bits - 1))) & ((1 << bits) - 1); }
+        function getHammingWeight(val) { let w = 0; let v = val; while(v > 0) { w += v & 1; v >>= 1; } return w; }
+        
+        function getOrbit(val, bits) {
+            let minVal = val, curr = val, size = 1, minStep = 0;
+            for(let i=1; i<bits; i++) {
+                curr = rotateLeft(curr, bits);
+                if (curr === val) break;
+                size++;
+                if (curr < minVal) { minVal = curr; minStep = i; }
+            }
+            let stepsFromMin = (bits - minStep) % size;
+            return { rep: minVal, size: size, steps: stepsFromMin };
+        }
+
+        const radiusMap = {
+            0: 0, // w=0
+            1: 1.8, // w=1
+            3: 2.2, 5: 1.4, 9: 0.6, // w=2
+            7: 2.6, 11: 1.8, 19: 1.0, 21: 0.2, // w=3
+            15: 2.2, 23: 1.4, 27: 0.6, // w=4
+            31: 1.8, // w=5
+            63: 0 // w=6
+        };
+
+        for(let i=0; i<64; i++) {
+            let w = getHammingWeight(i);
+            let orbit = getOrbit(i, 6);
+            let r = radiusMap[orbit.rep] || 1.0;
+            let angle = (orbit.steps / orbit.size) * Math.PI * 2;
+            
+            let y = (w - 3) * 1.0; // Y-As ordening op aantal 1-en
+            let x = r * Math.cos(angle); // XZ partitie via SHL
+            let z = r * Math.sin(angle);
+            
+            nodes6D.push({ x: x, y: y, z: z, w: w, val: i });
+        }
+
+        // Ribben: Exact Hamming afstand 1
+        for(let i=0; i<64; i++) {
+            for(let j=i+1; j<64; j++) {
+                if(getHammingWeight(i ^ j) === 1) edges6D.push([i, j]);
+            }
+        }
+
+        let state = {
+            cam: { pitch: 0.3, yaw: 0, roll: 0, zoom: 90 }, // Aangepast voor Quaternions
+            stars: [],
+            astro: { sun: { az: 109.84, el: 22.68 }, moon: { az: 240.62, el: -10.57 } },
+            mods: { mirror: false, polar: false },
+            luna: { active: false },
+            autoRotate: true,
+            audio: { active: false, ctx: null, osc: null, dest: null },
+            record: { active: false, recorder: null, chunks: [] }
+        };
+
+        for(let i=0; i<600; i++) state.stars.push({x:Math.random()*4-2, y:Math.random()*4-2, z:Math.random()*4-2});
+
+        function getJulianDate(date) { return (date.getTime() / 86400000) + 2440587.5; }
+        
+        function calculateElevAz(ra, dec, lat, lon, jd) {
+            const rad = Math.PI / 180, deg = 180 / Math.PI; const d = jd - 2451545.0;
+            let gmst = (280.46061837 + 360.98564736629 * d) % 360; if (gmst < 0) gmst += 360;
+            let lst = (gmst + lon) % 360; if (lst < 0) lst += 360; let ha = (lst - ra) % 360; if (ha < 0) ha += 360;
+            const haRad = ha * rad, decRad = dec * rad, latRad = lat * rad;
+            const sinElev = Math.sin(decRad) * Math.sin(latRad) + Math.cos(decRad) * Math.cos(latRad) * Math.cos(haRad); const elevRad = Math.asin(sinElev);
+            const cosAz = (Math.sin(decRad) - Math.sin(elevRad) * Math.sin(latRad)) / (Math.cos(elevRad) * Math.cos(latRad));
+            let az = Math.acos(cosAz) * deg; if (Math.sin(haRad) > 0) az = 360 - az;
+            return { elev: elevRad * deg, az: az };
+        }
+
+        function updateLiveEphemeris() {
+            const now = new Date(); const jd = getJulianDate(now);
+            let phase = ((jd - 2451550.1) % 29.53058867) / 29.53058867; if(phase < 0) phase += 1;
+            
+            // Gesimuleerde live rotatie voor weergave
+            state.astro.sun.az = (280 + (jd - 2451545) * 0.98) % 360;
+            state.astro.moon.az = (218 + (jd - 2451545) * 13.17) % 360;
+
+            document.getElementById('sys-clock').innerText = now.toLocaleTimeString();
+            document.getElementById('d-sun').innerText = `${state.astro.sun.el.toFixed(2)}° / ${state.astro.sun.az.toFixed(2)}°`;
+            document.getElementById('d-moon').innerText = `${state.astro.moon.el.toFixed(2)}° / ${state.astro.moon.az.toFixed(2)}°`;
+            document.getElementById('l-ph').innerText = (phase * 100).toFixed(1) + "%";
+            return (phase * 100).toFixed(1);
+        }
+
+        // --- PROJECTIE MET QUATERNIONS ---
+        function project(x, y, z) {
+            let mX = state.mods.mirror ? -1 : 1, mP = state.mods.polar ? -1 : 1;
+            let vx = x * mX, vy = y * mP, vz = z * mP;
+
+            // Genereer actuele Quaternion gebaseerd op camera status
+            let q = eulerToQuaternion(state.cam.pitch, state.cam.yaw, state.cam.roll);
+            let rotated = q.rotateVector({x: vx, y: vy, z: vz});
+
+            const factor = 1000 / (1000 - rotated.z * 50); 
+            return { x: rotated.x * state.cam.zoom * factor, y: rotated.y * state.cam.zoom * factor, z: rotated.z };
+        }
+
+        function draw() {
+            canvas.width = container.clientWidth; canvas.height = container.clientHeight;
+            const cx = canvas.width/2, cy = canvas.height/2;
+
+            if (state.autoRotate) state.cam.yaw += 0.003;
+
+            if(state.luna.active) {
+                state.cam.yaw += ( (state.astro.moon.az * Math.PI/180) - state.cam.yaw ) * 0.05;
+                state.cam.pitch += ( (state.astro.moon.el * Math.PI/180) - state.cam.pitch ) * 0.05;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = "rgba(255,255,255,0.2)";
+            state.stars.forEach(s => { let p = project(s.x*3, s.y*3, s.z*3); ctx.fillRect(cx + p.x, cy + p.y, 1, 1); });
+
+            // B(6,2) Edges (Neon Geel)
+            ctx.strokeStyle = "rgba(255, 234, 0, 0.25)";
+            ctx.lineWidth = 1.2;
+            edges6D.forEach(edge => {
+                let p1 = project(nodes6D[edge[0]].x, nodes6D[edge[0]].y, nodes6D[edge[0]].z);
+                let p2 = project(nodes6D[edge[1]].x, nodes6D[edge[1]].y, nodes6D[edge[1]].z);
+                ctx.beginPath(); ctx.moveTo(cx + p1.x, cy + p1.y); ctx.lineTo(cx + p2.x, cy + p2.y); ctx.stroke();
+            });
+
+            // B(6,2) Nodes (Lila)
+            nodes6D.forEach(node => {
+                let p = project(node.x, node.y, node.z);
+                ctx.fillStyle = "var(--accent-purple)"; 
+                ctx.shadowBlur = 12; ctx.shadowColor = "var(--accent-purple)";
+                // Radius gebaseerd op diepte (Z-as uit projectie)
+                let radius = Math.max(1, (3 + p.z*0.5)) * (state.cam.zoom / 100);
+                ctx.beginPath(); ctx.arc(cx + p.x, cy + p.y, radius, 0, Math.PI*2); ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+
+            // Zon 
+            let sP = project(Math.sin(state.astro.sun.az*Math.PI/180)*4, Math.sin(state.astro.sun.el*Math.PI/180)*4, Math.cos(state.astro.sun.az*Math.PI/180)*4);
+            ctx.fillStyle = "var(--accent-yellow)"; ctx.shadowBlur = 15; ctx.shadowColor = "var(--accent-yellow)";
+            ctx.beginPath(); ctx.arc(cx+sP.x, cy+sP.y, 8, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
+            
+            // Maan
+            let mP = project(Math.sin(state.astro.moon.az*Math.PI/180)*4, Math.sin(state.astro.moon.el*Math.PI/180)*4, Math.cos(state.astro.moon.az*Math.PI/180)*4);
+            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(cx+mP.x, cy+mP.y, 6, 0, Math.PI*2); ctx.fill();
+
+            requestAnimationFrame(draw);
+        }
+
+        // --- MEDIA CAPTURE ENGINE ---
+        document.getElementById('btn-record').onclick = function() {
+            if(!state.record.active) {
+                try {
+                    const canvasStream = canvas.captureStream(30); 
+                    let finalStream = canvasStream;
+                    if (state.audio.active && state.audio.dest) {
+                        const audioTracks = state.audio.dest.stream.getAudioTracks();
+                        if(audioTracks.length > 0) finalStream = new MediaStream([...canvasStream.getTracks(), ...audioTracks]);
+                    }
+                    state.record.recorder = new MediaRecorder(finalStream, { mimeType: 'video/webm' });
+                    state.record.chunks = [];
+                    state.record.recorder.ondataavailable = (e) => { if (e.data.size > 0) state.record.chunks.push(e.data); };
+                    state.record.recorder.onstop = () => {
+                        const blob = new Blob(state.record.chunks, { type: 'video/webm' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a'); a.style.display = 'none'; a.href = url;
+                        a.download = `VORTEX_HEXERACT_${new Date().getTime()}.webm`;
+                        document.body.appendChild(a); a.click();
+                        setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
+                        state.record.chunks = [];
+                        logTerminal("Opname succesvol geëxporteerd (.webm).");
+                    };
+                    state.record.recorder.start(); state.record.active = true;
+                    this.classList.add('recording'); this.innerText = '⏹ STOP OPNAME';
+                    document.getElementById('rec-indicator').style.display = 'block';
+                    logTerminal("Video opname gestart...");
+                } catch(err) { logTerminal("Fout bij opname: " + err.message); }
+            } else {
+                state.record.recorder.stop(); state.record.active = false;
+                this.classList.remove('recording'); this.innerText = '⏺ OPNAME';
+                document.getElementById('rec-indicator').style.display = 'none';
+                logTerminal("Opname gestopt. Bestand wordt gegenereerd...");
+            }
+        };
+
+        // --- DATA.TEX EXPORT ---
+        document.getElementById('btn-tex').onclick = function() {
+            const timestamp = new Date().toLocaleString();
+            let phase = document.getElementById('l-ph').innerText;
+            const texContent = `\\documentclass{article}
+\\usepackage[utf8]{inputenc}
+\\usepackage{geometry}
+\\geometry{a4paper, margin=1in}
+
+\\title{\\textbf{VORTEX HEXERACT B(6,2)} \\\\ \\large OMNI-SYNC LIVE}
+\\date{Genereerd op: ${timestamp}}
+
+\\begin{document}
+\\maketitle
+
+\\section*{Huidige Systeem Status (v110.19)}
+\\begin{itemize}
+    \\item \\textbf{Zon (Helios):} Elevatie ${state.astro.sun.el.toFixed(2)}^\\circ, Azimut ${state.astro.sun.az.toFixed(2)}^\\circ
+    \\item \\textbf{Maan (Luna):} Elevatie ${state.astro.moon.el.toFixed(2)}^\\circ, Azimut ${state.astro.moon.az.toFixed(2)}^\\circ
+    \\item \\textbf{Maanfase Actueel:} ${phase}
+\\end{itemize}
+
+\\section*{B(6,2) Hyperkubus Parameters (Quaternion Engine)}
+\\begin{itemize}
+    \\item \\textbf{Dimensies:} 6
+    \\item \\textbf{Knooppunten (Vertices):} 64
+    \\item \\textbf{Ribben (Edges):} 192
+    \\item \\textbf{Groepering:} Aantal 1-en (Hamming Weight op Y-as)
+    \\item \\textbf{Symmetrie:} Shift-Left (SHL) equivalentieklassen op XZ vlak
+    \\item \\textbf{Rotatie:} Quaternion wiskunde ter voorkoming van gimbal lock.
+\\end{itemize}
+
+\\vfill
+\\noindent\\rule{\\textwidth}{0.4pt}
+\\footnotesize{\\textit{VORTEX Engine v110.19 // Auto-generated LaTeX Export}}
+\\end{document}`;
+            const blob = new Blob([texContent], {type: 'text/plain'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `vortex_quaternion_${new Date().getTime()}.tex`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            logTerminal("DATA.TEX succesvol geëxporteerd.");
+        };
+
+        // UI en Audio Controls
+        document.getElementById('btn-audio').onclick = function() {
+            if(!state.audio.active) {
+                state.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                state.audio.dest = state.audio.ctx.createMediaStreamDestination();
+                state.audio.osc = state.audio.ctx.createOscillator();
+                let g = state.audio.ctx.createGain(); g.gain.value = 0.05;
+                state.audio.osc.connect(g); g.connect(state.audio.ctx.destination); g.connect(state.audio.dest);
+                state.audio.osc.start(); state.audio.active = true; this.classList.add('active');
+                logTerminal("Audio Systeem INGESCHAKELD.");
+            } else { 
+                state.audio.osc.stop(); state.audio.active = false; this.classList.remove('active'); 
+                logTerminal("Audio Systeem UITGESCHAKELD.");
+            }
+        };
+
+        document.getElementById('auto-rotate').addEventListener('change', e => state.autoRotate = e.target.checked);
+        document.getElementById('btn-mirror').onclick = function() { state.mods.mirror = !state.mods.mirror; this.classList.toggle('active'); };
+        document.getElementById('btn-polar').onclick = function() { state.mods.polar = !state.mods.polar; this.classList.toggle('active'); };
+        document.getElementById('btn-reset').onclick = () => state.cam = { pitch: 0.3, yaw: 0, roll: 0, zoom: 90 };
+        document.getElementById('m-in').onclick = () => state.cam.zoom *= 1.2;
+        document.getElementById('m-out').onclick = () => state.cam.zoom /= 1.2;
+        document.getElementById('btn-luna').onclick = function() { state.luna.active = !state.luna.active; this.classList.toggle('active'); };
+
+        let drag = false, lx, ly;
+        container.onmousedown = container.ontouchstart = (e) => { 
+            drag = true; let t = e.touches?e.touches[0]:e; lx = t.clientX; ly = t.clientY; 
+            state.autoRotate = false; document.getElementById('auto-rotate').checked = false;
+        };
+        window.onmousemove = window.ontouchmove = (e) => { 
+            if(!drag) return; let t = e.touches?e.touches[0]:e; 
+            // Pas YAW en PITCH aan (Quaternions handelen dit zuiver af)
+            state.cam.yaw += (t.clientX - lx)*0.008; 
+            state.cam.pitch += (t.clientY - ly)*0.008; 
+            lx = t.clientX; ly = t.clientY; 
+        };
+        window.onmouseup = window.ontouchend = () => drag = false;
+
+        updateLiveEphemeris();
+        setInterval(updateLiveEphemeris, 1000);
+        draw();
+    </script>
+</body>
+</html>
