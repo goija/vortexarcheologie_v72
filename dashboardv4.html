@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VORTEX v110.13 // TESSERACT-SYNC LIVE</title>
+    <style>
+        :root {
+            --bg-dark: #050505; --panel-bg: #0a0a0a; --border-color: #1f1f1f;
+            --accent-cyan: #00e5ff; --accent-green: #00e676; --accent-yellow: #ffea00;
+            --accent-red: #ff3d00; --accent-orange: #ff9100; --accent-purple: #b388ff;
+            --font-mono: 'Courier New', monospace;
+        }
+        body { background: var(--bg-dark); color: #e0e0e0; font-family: var(--font-mono); margin: 0; overflow: hidden; display: grid; grid-template-rows: 60px 1fr; height: 100vh; }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--border-color); background: #000; z-index: 10; }
+        main { display: grid; grid-template-columns: 320px 1fr 320px; gap: 10px; padding: 10px; height: calc(100vh - 60px); box-sizing: border-box; }
+        
+        .panel { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 12px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+        .section-title { color: var(--accent-cyan); font-size: 0.7em; text-transform: uppercase; border-bottom: 1px solid #222; padding-bottom: 3px; }
+        
+        #canvas-container { flex-grow: 1; width: 100%; height: 100%; position: relative; cursor: crosshair; overflow: hidden; background: #000; border: 1px solid #111; }
+        #cosmicCanvas { width: 100%; height: 100%; display: block; }
+        
+        .mobile-nav { position: absolute; right: 15px; bottom: 25px; display: flex; flex-direction: column; gap: 12px; z-index: 100; }
+        .m-btn { width: 60px; height: 60px; background: rgba(0,0,0,0.8); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); font-size: 28px; display: flex; align-items: center; justify-content: center; border-radius: 10px; touch-action: manipulation; }
+
+        #sonar-hud { position: absolute; top: 15px; left: 15px; padding: 10px; background: rgba(0,0,0,0.7); border-left: 3px solid #333; transition: 0.3s; pointer-events: none;}
+        #sonar-hud.active { border-color: var(--accent-yellow); color: var(--accent-yellow); box-shadow: 0 0 20px rgba(255, 234, 0, 0.2); }
+
+        button { background: transparent; color: var(--accent-cyan); border: 1px solid var(--accent-cyan); padding: 8px; font-family: var(--font-mono); cursor: pointer; font-size: 0.65em; transition: 0.2s; text-transform: uppercase; font-weight: bold; }
+        button:hover { background: rgba(0, 229, 255, 0.1); }
+        button.active { background: var(--accent-yellow); color: #000; border-color: var(--accent-yellow); }
+        
+        .rec-btn { border-color: var(--accent-red); color: var(--accent-red); }
+        .rec-btn.recording { background: var(--accent-red); color: #fff; animation: pulseRed 1.5s infinite; }
+        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(255,61,0,0.7); } 70% { box-shadow: 0 0 0 10px rgba(255,61,0,0); } 100% { box-shadow: 0 0 0 0 rgba(255,61,0,0); } }
+
+        select, input[type="range"] { background: #111; color: var(--accent-cyan); border: 1px solid #333; padding: 5px; font-family: var(--font-mono); font-size: 0.7em; width: 100%; outline: none;}
+        .data-row { display: flex; justify-content: space-between; font-size: 0.75em; border-bottom: 1px solid #1a1a1a; padding: 2px 0; }
+        
+        @media (max-width: 1024px) {
+            body { display: block; overflow-y: auto; }
+            main { display: flex; flex-direction: column; height: auto; }
+            #canvas-container { height: 70vh; }
+            header { flex-direction: column; height: auto; padding: 10px; gap: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="color: var(--accent-cyan); font-weight: bold;">VORTEX v110.13 // TESSERACT-SYNC</div>
+        <div id="sys-clock" style="color: var(--accent-yellow);">00:00:00</div>
+        <div style="display: flex; gap: 8px;">
+            <button id="btn-audio">AUDIO</button>
+            <button id="btn-record" class="rec-btn">⏺ OPNAME</button>
+            <button id="btn-luna" style="border-color:#fff; color:#fff;">☾ MAAN FOCUS</button>
+        </div>
+    </header>
+    <main>
+        <div class="panel">
+            <div class="section-title">GEOMETRIE & TESSERACT</div>
+            
+            <label style="font-size: 0.6em; color: #888;">GEOMETRISCHE BASIS</label>
+            <select id="base-geom">
+                <option value="6">ZESHOEK (6 x 60°)</option>
+                <option value="9">ENNEAGRAM (9 x 40°)</option>
+            </select>
+
+            <label style="font-size: 0.6em; color: #888; margin-top: 5px;">4D TESSERACT Knooppunten</label>
+            <select id="tesseract-toggle" style="color: var(--accent-purple); border-color: var(--accent-purple);">
+                <option value="on">ZICHTBAAR (4D ROTATIE)</option>
+                <option value="off">VERBORGEN</option>
+            </select>
+
+            <label style="font-size: 0.6em; color: #888; margin-top: 5px;">TYPE BETEGELING</label>
+            <select id="tiling-type">
+                <option value="triangles">DRIEHOEKEN (VECTORS)</option>
+                <option value="hexagons">HEXAGONEN (CELLAIR)</option>
+                <option value="diamonds">RUITEN (CRYSTAL)</option>
+            </select>
+            
+            <div class="section-title" style="margin-top: 15px;">LIVE EPHEMERIS</div>
+            <div class="data-row"><span>ZON:</span><span id="d-sun" style="color:var(--accent-yellow)">--° / --°</span></div>
+            <div class="data-row"><span>MAAN:</span><span id="d-moon" style="color:#fff">--° / --°</span></div>
+            <div class="data-row"><span>MAANFASE:</span><span id="l-ph" style="color:#aaa; font-weight:bold;">--%</span></div>
+            <div class="data-row"><span>ORION:</span><span id="d-orion" style="color:var(--accent-cyan)">--° / --°</span></div>
+            
+            <div class="section-title" style="margin-top: 15px;">SONAR DETECTIE</div>
+            <div id="sonar-freq" style="font-size: 1.2em; color: var(--accent-green);">1320.00 Hz</div>
+        </div>
+
+        <div class="panel" style="padding:0;">
+            <div id="canvas-container">
+                <canvas id="cosmicCanvas"></canvas>
+                <div id="sonar-hud">
+                    <div style="font-size: 0.5em; letter-spacing: 1px;">VECTOR LOCK 108°</div>
+                    <div id="degree-display" style="font-size: 1.2em; font-weight: bold;">0.00°</div>
+                </div>
+                <div class="mobile-nav">
+                    <button class="m-btn" id="m-in">+</button>
+                    <button class="m-btn" id="m-out">−</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="section-title">TRANSFORMATIES</div>
+            <button id="btn-mirror" style="width: 100%;">MIRROR X-AS (UIT)</button>
+            <button id="btn-polar" style="width: 100%;">POLAR INVERSIE (UIT)</button>
+            <button id="btn-reset" style="width: 100%; border-color:#555; color:#888;">RESET VIEW</button>
+            
+            <button id="btn-tex" style="width: 100%; border-color: var(--accent-purple); color: var(--accent-purple); margin-top: 10px;">📄 DATA.TEX EXPORT</button>
+            
+            <div class="section-title" style="margin-top: 15px;">SYSTEEM LOG</div>
+            <div id="terminal" style="font-size: 0.6em; color: var(--accent-green); height: 100px; overflow-y: auto;">
+                > VORTEX 110.13 ONLINE...<br>
+                > TESSERACT 4D ENGINE GEÏNTEGREERD...<br>
+                > ENNEAGRAM (9x40) BESCHIKBAAR...<br>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('cosmicCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+        
+        // Tesseract Data (16 vertices)
+        const tessVertices = [];
+        for (let i = 0; i < 16; i++) {
+            tessVertices.push([
+                (i & 1) === 0 ? -1 : 1,
+                (i & 2) === 0 ? -1 : 1,
+                (i & 4) === 0 ? -1 : 1,
+                (i & 8) === 0 ? -1 : 1
+            ]);
+        }
+        const tessEdges = [];
+        for (let i = 0; i < 16; i++) {
+            for (let j = i + 1; j < 16; j++) {
+                let diff = 0;
+                for (let k = 0; k < 4; k++) if (tessVertices[i][k] !== tessVertices[j][k]) diff++;
+                if (diff === 1) tessEdges.push([i, j]);
+            }
+        }
+
+        let state = {
+            cam: { rotX: 0.6, rotY: 0, zoom: 1.1 },
+            stars: [],
+            astro: { sun: { az: 109.84, el: 22.68 }, moon: { az: 240.62, el: -10.57 }, orion: { az: 56.75, el: -25.27 } },
+            orionGroup: [
+                {x: 0.1, y: 0.4, z: 0.05, n: "Betelgeuse", c: "#ff3d00"},
+                {x: -0.1, y: -0.4, z: -0.05, n: "Rigel", c: "#00e5ff"},
+                {x: -0.04, y: 0, z: 0, n: "Mintaka", c: "#fff"},
+                {x: 0, y: 0, z: 0, n: "Alnilam", c: "#fff"},
+                {x: 0.04, y: 0, z: 0, n: "Alnitak", c: "#fff"}
+            ],
+            mods: { mirror: false, polar: false },
+            tiling: { type: 'triangles', density: 3, points: 6 },
+            tesseract: { active: true, xw: 0, yw: 0, zw: 0 },
+            luna: { active: false },
+            audio: { active: false, ctx: null, osc: null, dest: null },
+            record: { active: false, recorder: null, chunks: [] },
+            isLocked: false
+        };
+
+        for(let i=0; i<800; i++) state.stars.push({x:Math.random()*4-2, y:Math.random()*4-2, z:Math.random()*4-2});
+
+        function getLiveMoonPhase() {
+            const jd = (new Date().getTime() / 86400000) + 2440587.5; 
+            let phase = ((jd - 2451550.1) % 29.53058867) / 29.53058867; 
+            return ((phase < 0 ? phase + 1 : phase) * 100).toFixed(1);
+        }
+
+        function project(x, y, z) {
+            let mX = state.mods.mirror ? -1 : 1, mP = state.mods.polar ? -1 : 1;
+            let nx = (x * mX) * Math.cos(state.cam.rotY) - (z * mP) * Math.sin(state.cam.rotY);
+            let nz = (x * mX) * Math.sin(state.cam.rotY) + (z * mP) * Math.cos(state.cam.rotY);
+            let ny = (y * mP) * Math.cos(state.cam.rotX) - nz * Math.sin(state.cam.rotX);
+            const scale = Math.min(canvas.width, canvas.height) * 0.5 * state.cam.zoom;
+            return { x: nx * scale, y: ny * scale, z: nz };
+        }
+
+        function drawTiling(cx, cy) {
+            const d = 3; // Fixed density for clean look
+            ctx.strokeStyle = state.isLocked ? "rgba(255, 234, 0, 0.4)" : "rgba(0, 229, 255, 0.15)";
+            ctx.lineWidth = 1;
+
+            for (let q = -d; q <= d; q++) {
+                for (let r = -d; r <= d; r++) {
+                    if (Math.abs(q + r) > d) continue;
+                    let x = 0.2 * (Math.sqrt(3) * q + Math.sqrt(3)/2 * r) / d;
+                    let z = 0.2 * (3/2 * r) / d;
+                    let p = project(x, 0, z);
+                    
+                    if (state.tiling.type === 'triangles') {
+                        ctx.beginPath(); ctx.arc(cx + p.x, cy + p.y, 1, 0, Math.PI*2); ctx.stroke();
+                        let pRight = project(x + 0.1/d, 0, z);
+                        ctx.beginPath(); ctx.moveTo(cx + p.x, cy + p.y); ctx.lineTo(cx + pRight.x, cy + pRight.y); ctx.stroke();
+                    } else if (state.tiling.type === 'hexagons') {
+                        ctx.beginPath();
+                        for(let i=0; i<6; i++) {
+                            let a = i * Math.PI / 3;
+                            let v = project(x + Math.sin(a)*0.1/d, 0, z + Math.cos(a)*0.1/d);
+                            if(i===0) ctx.moveTo(cx+v.x, cy+v.y); else ctx.lineTo(cx+v.x, cy+v.y);
+                        }
+                        ctx.closePath(); ctx.stroke();
+                    } else {
+                        let pUp = project(x, 0, z + 0.1/d);
+                        ctx.beginPath(); ctx.moveTo(cx + p.x, cy + p.y); ctx.lineTo(cx + pUp.x, cy + pUp.y); ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function drawTesseract(cx, cy) {
+            // Update 4D rotation angles automatically
+            state.tesseract.xw += 0.005;
+            state.tesseract.yw += 0.008;
+            state.tesseract.zw += 0.003;
+
+            let projectedNodes = [];
+
+            tessVertices.forEach((v, index) => {
+                let x = v[0], y = v[1], z = v[2], w = v[3];
+                
+                // 4D Matrices
+                let cosXW = Math.cos(state.tesseract.xw), sinXW = Math.sin(state.tesseract.xw);
+                let nx = x * cosXW - w * sinXW; let nw = x * sinXW + w * cosXW;
+                x = nx; w = nw;
+                
+                let cosYW = Math.cos(state.tesseract.yw), sinYW = Math.sin(state.tesseract.yw);
+                let ny = y * cosYW - w * sinYW; nw = y * sinYW + w * cosYW;
+                y = ny; w = nw;
+
+                // 4D to 3D Projection (Perspectief)
+                let w_distance = 2.5;
+                let w_factor = 1 / (w_distance - w);
+                
+                // Scale to fit nicely inside the geometry
+                let scale4D = 0.45;
+                let x3 = x * w_factor * scale4D;
+                let y3 = y * w_factor * scale4D;
+                let z3 = z * w_factor * scale4D;
+
+                // 3D to 2D screen projection using existing VORTEX camera
+                let p2 = project(x3, y3, z3);
+                projectedNodes.push({ x: p2.x, y: p2.y, w: w, z3: z3 });
+            });
+
+            // Teken extreem vage ribben (zodat de focus op de Knooppunten blijft)
+            ctx.lineWidth = 0.5;
+            ctx.strokeStyle = "rgba(179, 136, 255, 0.15)";
+            tessEdges.forEach(edge => {
+                let p1 = projectedNodes[edge[0]], p2 = projectedNodes[edge[1]];
+                ctx.beginPath(); ctx.moveTo(cx + p1.x, cy + p1.y); ctx.lineTo(cx + p2.x, cy + p2.y); ctx.stroke();
+            });
+
+            // Teken de 16 Knooppunten (Nodes)
+            projectedNodes.forEach(p => {
+                // Diepte-effect op basis van de W-as en Z-as
+                let size = Math.max(1, (1 + p.w) * 2) * state.cam.zoom;
+                let isInner = p.w > 0;
+                
+                ctx.fillStyle = isInner ? "var(--accent-purple)" : "var(--accent-cyan)";
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = ctx.fillStyle;
+                
+                ctx.beginPath();
+                ctx.arc(cx + p.x, cy + p.y, size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0; // Reset
+            });
+        }
+
+        function draw() {
+            canvas.width = container.clientWidth; canvas.height = container.clientHeight;
+            const cx = canvas.width/2, cy = canvas.height/2;
+
+            if(state.luna.active) {
+                state.cam.rotY += ( (state.astro.moon.az * Math.PI/180) - state.cam.rotY ) * 0.05;
+                state.cam.rotX += ( (state.astro.moon.el * Math.PI/180) - state.cam.rotX ) * 0.05;
+            }
+
+            let deg = (state.cam.rotY * 180/Math.PI) % 360; if(deg < 0) deg += 360;
+            state.isLocked = Math.abs(deg - (state.mods.mirror ? 252 : 108)) < 1.5;
+            
+            document.getElementById('degree-display').innerText = deg.toFixed(2) + "°";
+            document.getElementById('sonar-hud').className = state.isLocked ? 'active' : '';
+            let freq = state.isLocked ? 432 : 1320 + (deg * 0.5);
+            document.getElementById('sonar-freq').innerText = freq.toFixed(2) + " Hz";
+            if(state.audio.active && state.audio.osc) state.audio.osc.frequency.setTargetAtTime(freq, state.audio.ctx.currentTime, 0.05);
+
+            // Stars
+            ctx.fillStyle = "rgba(255,255,255,0.3)";
+            state.stars.forEach(s => { let p = project(s.x, s.y, s.z); ctx.fillRect(cx + p.x, cy + p.y, 1, 1); });
+
+            // Basis Geometrie (6 of 9 punten)
+            ctx.strokeStyle = "rgba(0, 229, 255, 0.2)";
+            ctx.beginPath();
+            let pts = state.tiling.points;
+            for(let i=0; i<pts; i++) {
+                let p = project(Math.sin(i*Math.PI*2/pts)*1.5, 0, Math.cos(i*Math.PI*2/pts)*1.5);
+                if(i===0) ctx.moveTo(cx+p.x, cy+p.y); else ctx.lineTo(cx+p.x, cy+p.y);
+            }
+            ctx.closePath(); ctx.stroke();
+            
+            // Tesselatie
+            drawTiling(cx, cy);
+
+            // 4D Tesseract Nodes
+            if (state.tesseract.active) {
+                drawTesseract(cx, cy);
+            }
+
+            // Compass N O Z W
+            ctx.fillStyle = "var(--accent-orange)"; ctx.font = "bold 14px Courier New"; ctx.textAlign = "center";
+            [['N',0],['O',Math.PI/2],['Z',Math.PI],['W',Math.PI*1.5]].forEach(d => {
+                let p = project(Math.sin(d[1])*1.7, 0, Math.cos(d[1])*1.7); ctx.fillText(d[0], cx+p.x, cy+p.y);
+            });
+
+            // Sun Moon Orion
+            const sP = project(Math.sin(state.astro.sun.az*Math.PI/180), Math.sin(state.astro.sun.el*Math.PI/180), Math.cos(state.astro.sun.az*Math.PI/180));
+            ctx.fillStyle = "var(--accent-yellow)"; ctx.beginPath(); ctx.arc(cx+sP.x, cy+sP.y, 12*state.cam.zoom, 0, Math.PI*2); ctx.fill();
+            ctx.font = "10px monospace"; ctx.fillText("ZON", cx+sP.x, cy+sP.y-15);
+
+            const mP = project(Math.sin(state.astro.moon.az*Math.PI/180), Math.sin(state.astro.moon.el*Math.PI/180), Math.cos(state.astro.moon.az*Math.PI/180));
+            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(cx+mP.x, cy+mP.y, 8*state.cam.zoom, 0, Math.PI*2); ctx.fill();
+            ctx.fillText("MAAN", cx+mP.x+15, cy+mP.y);
+
+            state.orionGroup.forEach(s => {
+                let p = project(s.x + Math.sin(state.astro.orion.az*Math.PI/180)*0.5, s.y, s.z + Math.cos(state.astro.orion.az*Math.PI/180)*0.5);
+                ctx.fillStyle = s.c; ctx.beginPath(); ctx.arc(cx+p.x, cy+p.y, 2.5*state.cam.zoom, 0, Math.PI*2); ctx.fill();
+            });
+
+            requestAnimationFrame(draw);
+        }
+
+        // --- Controls & Logic ---
+        document.getElementById('base-geom').onchange = (e) => state.tiling.points = parseInt(e.target.value);
+        document.getElementById('tiling-type').onchange = (e) => state.tiling.type = e.target.value;
+        document.getElementById('tesseract-toggle').onchange = (e) => state.tesseract.active = (e.target.value === 'on');
+        
+        document.getElementById('btn-record').onclick = function() {
+            if(!state.record.active) {
+                const stream = canvas.captureStream(30);
+                if(state.audio.active && state.audio.dest) stream.addTrack(state.audio.dest.stream.getAudioTracks()[0]);
+                state.record.recorder = new MediaRecorder(stream);
+                state.record.recorder.ondataavailable = e => state.record.chunks.push(e.data);
+                state.record.recorder.onstop = () => {
+                    const blob = new Blob(state.record.chunks, {type:'video/webm'});
+                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `VORTEX_CAPTURE_${Date.now()}.webm`; a.click();
+                };
+                state.record.recorder.start(); state.record.active = true; this.classList.add('recording');
+            } else { state.record.recorder.stop(); state.record.active = false; this.classList.remove('recording'); }
+        };
+
+        document.getElementById('btn-audio').onclick = function() {
+            if(!state.audio.active) {
+                state.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                state.audio.dest = state.audio.ctx.createMediaStreamDestination();
+                state.audio.osc = state.audio.ctx.createOscillator();
+                let g = state.audio.ctx.createGain(); g.gain.value = 0.05;
+                state.audio.osc.connect(g); g.connect(state.audio.ctx.destination); g.connect(state.audio.dest);
+                state.audio.osc.start(); state.audio.active = true; this.classList.add('active');
+            } else { state.audio.osc.stop(); state.audio.active = false; this.classList.remove('active'); }
+        };
+
+        document.getElementById('btn-luna').onclick = function() { state.luna.active = !state.luna.active; this.classList.toggle('active'); };
+        document.getElementById('btn-mirror').onclick = function() { state.mods.mirror = !state.mods.mirror; this.classList.toggle('active'); this.innerText = `MIRROR X-AS (${state.mods.mirror?'AAN':'UIT'})`; };
+        document.getElementById('btn-polar').onclick = function() { state.mods.polar = !state.mods.polar; this.classList.toggle('active'); this.innerText = `POLAR INVERSIE (${state.mods.polar?'AAN':'UIT'})`; };
+        document.getElementById('btn-reset').onclick = () => { state.cam = { rotX: 0.6, rotY: 0, zoom: 1.1 }; state.luna.active = false; };
+        document.getElementById('m-in').onclick = () => state.cam.zoom *= 1.2;
+        document.getElementById('m-out').onclick = () => state.cam.zoom /= 1.2;
+
+        document.getElementById('btn-tex').onclick = function() {
+            const texContent = `\\documentclass{article}\\begin{document}VORTEX Export - ${new Date().toLocaleString()}\\end{document}`;
+            const blob = new Blob([texContent], {type: 'text/plain'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `vortex.tex`; a.click();
+        };
+
+        let drag = false, lx, ly;
+        container.onmousedown = container.ontouchstart = (e) => { drag = true; let t = e.touches?e.touches[0]:e; lx = t.clientX; ly = t.clientY; state.luna.active = false; };
+        window.onmousemove = window.ontouchmove = (e) => { if(!drag) return; let t = e.touches?e.touches[0]:e; state.cam.rotY += (t.clientX - lx)*0.008; state.cam.rotX += (t.clientY - ly)*0.008; lx = t.clientX; ly = t.clientY; };
+        window.onmouseup = window.ontouchend = () => drag = false;
+
+        setInterval(() => {
+            document.getElementById('sys-clock').innerText = new Date().toLocaleTimeString();
+            document.getElementById('d-sun').innerText = `${state.astro.sun.el}° / ${state.astro.sun.az}°`;
+            document.getElementById('d-moon').innerText = `${state.astro.moon.el}° / ${state.astro.moon.az}°`;
+            document.getElementById('d-orion').innerText = `${state.astro.orion.el}° / ${state.astro.orion.az}°`;
+            document.getElementById('l-ph').innerText = getLiveMoonPhase() + "%";
+        }, 1000);
+        draw();
+    </script>
+</body>
+</html>
