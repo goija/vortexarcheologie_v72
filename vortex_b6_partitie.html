@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VORTEX v110.27 // B(6) PARTITIE</title>
+    <style>
+        :root {
+            --bg-dark: #050505; --panel-bg: #0a0a0a; --border-color: #1f1f1f;
+            --accent-cyan: #00e5ff; --accent-green: #00e676; --accent-yellow: #f5d400; 
+            --accent-purple: #e1b1ff; 
+            --font-mono: 'Courier New', monospace;
+        }
+        body { background: var(--bg-dark); color: #e0e0e0; font-family: var(--font-mono); margin: 0; overflow: hidden; display: grid; grid-template-rows: 60px 1fr; height: 100vh; }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--border-color); background: #000; z-index: 10; }
+        main { display: grid; grid-template-columns: 340px 1fr; gap: 10px; padding: 10px; height: calc(100vh - 60px); box-sizing: border-box; }
+        
+        .panel { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 15px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 20; }
+        .section-title { color: var(--accent-cyan); font-size: 0.8em; text-transform: uppercase; border-bottom: 1px solid #222; padding-bottom: 5px; margin-bottom: 5px; letter-spacing: 1px;}
+        
+        #canvas-container { flex-grow: 1; width: 100%; height: 100%; position: relative; cursor: crosshair; overflow: hidden; background: radial-gradient(circle, #111 0%, #000 100%); border: 1px solid #111; }
+        #cosmicCanvas { width: 100%; height: 100%; display: block; position: absolute; top:0; left:0; z-index: 2; }
+
+        .control-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+        .control-group label { font-size: 0.75em; color: #888; display: flex; justify-content: space-between;}
+        .val-display { color: var(--accent-cyan); font-weight: bold; }
+        input[type="range"] { -webkit-appearance: none; width: 100%; background: #111; height: 6px; border-radius: 3px; outline: none; margin-top: 5px; border: 1px solid #333;}
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent-cyan); cursor: pointer; }
+
+        button { background: rgba(0, 229, 255, 0.05); color: var(--accent-cyan); border: 1px solid var(--accent-cyan); padding: 10px; font-family: var(--font-mono); cursor: pointer; font-size: 0.75em; transition: 0.2s; text-transform: uppercase; font-weight: bold; border-radius: 4px;}
+        button:hover { background: rgba(0, 229, 255, 0.2); }
+        button.active { background: var(--accent-yellow); color: #000; border-color: var(--accent-yellow); }
+
+        .data-row { display: flex; justify-content: space-between; font-size: 0.8em; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 4px 0; color: #aaa;}
+        
+        #tooltip { position: absolute; padding: 8px 12px; background: rgba(0,0,0,0.9); border: 1px solid var(--accent-cyan); color: #fff; font-size: 0.75em; pointer-events: none; display: none; z-index: 100; box-shadow: 0 0 10px rgba(0, 229, 255, 0.2); border-radius: 4px;}
+        
+        #terminal { font-size: 0.7em; color: var(--accent-green); height: 150px; overflow-y: auto; line-height: 1.5; border-top: 1px solid #333; padding-top: 10px; margin-top: auto;}
+
+        @media (max-width: 900px) {
+            main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+            .panel { height: auto; max-height: 40vh; }
+            #canvas-container { height: 50vh; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="color: var(--accent-cyan); font-weight: bold; font-size:1.2em; letter-spacing: 1px;">VORTEX v110.27 // B(6) EXPLORER</div>
+        <div id="sys-clock" style="color: var(--accent-yellow);">00:00:00</div>
+    </header>
+    <main>
+        <div class="panel">
+            <div class="section-title">B(6) SHL PARTITIE</div>
+            
+            <div class="data-row"><span>DIMENSIE:</span><span style="color:var(--accent-purple)">6D (64 Knooppunten)</span></div>
+            <div class="data-row"><span>Y-AS:</span><span style="color:#fff">Hamming-gewicht (1's)</span></div>
+            <div class="data-row"><span>X/Z-VLAK:</span><span style="color:#fff">SHL Equivalentie Orbits</span></div>
+
+            <div class="section-title" style="margin-top: 20px;">RUIMTELIJKE SPREIDING</div>
+            
+            <div class="control-group">
+                <label><span>Verticale Spreiding (Y-As)</span> <span id="val-vspread" class="val-display">1.0x</span></label>
+                <input type="range" id="ctrl-vspread" min="0" max="300" value="100">
+            </div>
+
+            <div class="control-group">
+                <label><span>Ring Spreiding (Orbits)</span> <span id="val-rspread" class="val-display">1.0x</span></label>
+                <input type="range" id="ctrl-rspread" min="10" max="300" value="100">
+            </div>
+
+            <div class="control-group">
+                <label><span>Camera Zoom</span> <span id="val-zoom" class="val-display">120</span></label>
+                <input type="range" id="ctrl-zoom" min="50" max="250" value="120">
+            </div>
+
+            <button id="btn-auto-rot" class="active" style="margin-top: 10px;">AUTOMATISCHE 3D ROTATIE: AAN</button>
+            <button id="btn-reset" style="margin-top: 5px; border-color: #555; color: #888;">HERSTEL CAMERA</button>
+
+            <div id="terminal">
+                > VORTEX 110.27 ONLINE...<br>
+                > B(6) HEXERACT GEGENEREERD...<br>
+                > HAMMING-WEIGHT GELAAGDHEID BEREKEND...<br>
+                > SHIFT-LEFT (SHL) ORBITS GEÏNDUCEERD...<br>
+                > 192 RIBBEN VERBONDEN.<br>
+            </div>
+        </div>
+
+        <div style="position: relative; flex-grow: 1;">
+            <div id="canvas-container">
+                <canvas id="cosmicCanvas"></canvas>
+                <div id="tooltip">
+                    <div style="color:var(--accent-cyan); font-weight:bold; margin-bottom:3px;" id="tt-bin">000000</div>
+                    <div>Waarde: <span id="tt-val" style="color:var(--accent-yellow)">0</span></div>
+                    <div>Hamming: <span id="tt-hw" style="color:#fff">0</span></div>
+                    <div>Orbit ID: <span id="tt-orb" style="color:var(--accent-purple)">0</span></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('cosmicCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+        const tooltip = document.getElementById('tooltip');
+
+        // --- QUATERNION ENGINE (Gimbal-vrije 3D rotatie) ---
+        class Quaternion {
+            constructor(w=1, x=0, y=0, z=0) { this.w=w; this.x=x; this.y=y; this.z=z; }
+            multiply(q) {
+                return new Quaternion(
+                    this.w*q.w - this.x*q.x - this.y*q.y - this.z*q.z,
+                    this.w*q.x + this.x*q.w + this.y*q.z - this.z*q.y,
+                    this.w*q.y - this.x*q.z + this.y*q.w + this.z*q.x,
+                    this.w*q.z + this.x*q.y - this.y*q.x + this.z*q.w
+                );
+            }
+            conjugate() { return new Quaternion(this.w, -this.x, -this.y, -this.z); }
+            rotateVector(v) {
+                let vecQ = new Quaternion(0, v.x, v.y, v.z);
+                let res = this.multiply(vecQ).multiply(this.conjugate());
+                return { x: res.x, y: res.y, z: res.z };
+            }
+        }
+        function eulerToQ(p, y, r) {
+            let cy = Math.cos(y*0.5), sy = Math.sin(y*0.5), cp = Math.cos(p*0.5), sp = Math.sin(p*0.5), cr = Math.cos(r*0.5), sr = Math.sin(r*0.5);
+            return new Quaternion(cr*cp*cy+sr*sp*sy, sr*cp*cy-cr*sp*sy, cr*sp*cy+sr*cp*sy, cr*cp*sy-sr*sp*cy);
+        }
+
+        // --- B(6) WISKUNDE & LOGICA ---
+        function getHW(n) { let w=0; for(let i=0; i<6; i++) if(n & (1<<i)) w++; return w; }
+        // Cyclische Shift Left (6 bits)
+        function shl(n) { return ((n << 1) | (n >> 5)) & 63; }
+        // Vind de representant (kleinste waarde) van de SHL orbit
+        function getOrbit(n) {
+            let min = n, curr = n;
+            for(let i=0; i<6; i++) { curr = shl(curr); if(curr < min) min = curr; }
+            return min;
+        }
+        // Maak 6-bit binaire string
+        function toBin(n) { return n.toString(2).padStart(6, '0'); }
+
+        const orbits = {};
+        for(let i=0; i<64; i++) { 
+            let o = getOrbit(i); 
+            if(!orbits[o]) orbits[o] = []; 
+            orbits[o].push(i); 
+        }
+
+        let nodes = [];
+        const edges = [];
+        
+        // Base radiussen voor de verschillende orbits om ze mooi te spreiden
+        const baseRadii = {
+            0: 0, 63: 0,     // hw 0 en 6 (centrum)
+            1: 1.2, 31: 1.2, // hw 1 en 5
+            3: 1.6, 5: 0.8, 9: 2.2, // hw 2
+            15: 1.6, 23: 0.8, 27: 2.2, // hw 4
+            7: 2.5, 11: 1.5, 19: 0.5, 21: 0.0 // hw 3 (21 is de alternerende 010101 orbit, geplaatst in centrum)
+        };
+
+        function generateGeometry() {
+            nodes = [];
+            for(let i=0; i<64; i++) {
+                let hw = getHW(i); 
+                let o = getOrbit(i); 
+                let orbitList = orbits[o];
+                
+                // Sorteer de orbit op binaire waarde voor consistente plaatsing in de ring
+                orbitList.sort((a,b) => a-b);
+                
+                let angle = (orbitList.indexOf(i) / orbitList.length) * Math.PI * 2;
+                let radius = baseRadii[o] !== undefined ? baseRadii[o] : 1.0;
+
+                nodes.push({
+                    id: i, hw: hw, orbit: o, bin: toBin(i),
+                    baseX: Math.cos(angle) * radius,
+                    baseY: (hw - 3) * 0.8, // Centreer rond Y=0 (3 is het midden van 0-6)
+                    baseZ: Math.sin(angle) * radius,
+                    projX: 0, projY: 0, projZ: 0, scale: 1
+                });
+            }
+        }
+        generateGeometry();
+
+        // Verbind knooppunten met Hamming-afstand 1
+        for(let i=0; i<64; i++) {
+            for(let j=i+1; j<64; j++) {
+                if(getHW(i^j) === 1) edges.push([i,j]);
+            }
+        }
+
+        // --- STATE ---
+        let state = {
+            cam: { pitch: 0.2, yaw: 0, roll: 0, zoom: 120 },
+            vSpread: 1.0,
+            rSpread: 1.0,
+            autoRot: true,
+            hoverNode: null,
+            isDragging: false,
+            mouse: { x: 0, y: 0 }
+        };
+
+        // --- UI KOPPELINGEN ---
+        document.getElementById('ctrl-vspread').oninput = (e) => { state.vSpread = e.target.value / 100; document.getElementById('val-vspread').innerText = state.vSpread.toFixed(1) + 'x'; };
+        document.getElementById('ctrl-rspread').oninput = (e) => { state.rSpread = e.target.value / 100; document.getElementById('val-rspread').innerText = state.rSpread.toFixed(1) + 'x'; };
+        document.getElementById('ctrl-zoom').oninput = (e) => { state.cam.zoom = parseInt(e.target.value); document.getElementById('val-zoom').innerText = state.cam.zoom; };
+        
+        document.getElementById('btn-auto-rot').onclick = function() { 
+            state.autoRot = !state.autoRot; 
+            this.classList.toggle('active'); 
+            this.innerText = `AUTOMATISCHE 3D ROTATIE: ${state.autoRot ? 'AAN' : 'UIT'}`; 
+        };
+        document.getElementById('btn-reset').onclick = () => { 
+            state.cam = { pitch: 0.2, yaw: 0, roll: 0, zoom: 120 }; 
+            document.getElementById('ctrl-zoom').value = 120;
+            document.getElementById('val-zoom').innerText = '120';
+        };
+
+        // --- RENDER ENGINE ---
+        function project(v) {
+            let q = eulerToQ(state.cam.pitch, state.cam.yaw, state.cam.roll);
+            // Pas spread multipliers toe op de basiscoördinaten
+            let scaledV = { x: v.x * state.rSpread, y: v.y * state.vSpread, z: v.z * state.rSpread };
+            let rotated = q.rotateVector(scaledV);
+            
+            // Perspectief
+            let factor = 1000 / (1000 - rotated.z * 100);
+            return { x: rotated.x * state.cam.zoom * factor, y: rotated.y * state.cam.zoom * factor, z: rotated.z, f: factor };
+        }
+
+        // Hamming Weight Gradiënt Kleuren (0 tot 6)
+        const hwColors = ["#311b92", "#7b1fa2", "#c2185b", "#f57c00", "#fbc02d", "#fff59d", "#ffffff"];
+
+        function draw() {
+            canvas.width = container.clientWidth; canvas.height = container.clientHeight;
+            const cx = canvas.width/2, cy = canvas.height/2;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if(state.autoRot) state.cam.yaw += 0.003;
+
+            // 1. Bereken projecties
+            nodes.forEach(n => {
+                let v = { x: n.baseX, y: n.baseY, z: n.baseZ };
+                let p = project(v);
+                n.projX = cx + p.x; n.projY = cy + p.y; n.projZ = p.z; n.scale = p.f;
+            });
+
+            // 2. Teken Ribben (Lijnen)
+            ctx.lineWidth = 1;
+            edges.forEach(edge => {
+                let n1 = nodes[edge[0]], n2 = nodes[edge[1]];
+                // Verberg lijnen die ver achter de camera liggen ter voorkoming van artefacten
+                if(n1.projZ > 9 || n2.projZ > 9) return; 
+                
+                let isHovered = (state.hoverNode === edge[0] || state.hoverNode === edge[1]);
+                
+                ctx.strokeStyle = isHovered ? "rgba(0, 229, 255, 0.8)" : "rgba(245, 212, 0, 0.15)";
+                ctx.lineWidth = isHovered ? 2 : 1;
+                
+                ctx.beginPath(); ctx.moveTo(n1.projX, n1.projY); ctx.lineTo(n2.projX, n2.projY); ctx.stroke();
+            });
+
+            // 3. Teken Knooppunten (Nodes)
+            // Sorteer op Z-diepte om correct over elkaar te tekenen
+            let sortedNodes = [...nodes].sort((a,b) => b.projZ - a.projZ);
+            
+            sortedNodes.forEach(n => {
+                if(n.projZ > 9) return;
+                
+                let isHovered = (state.hoverNode === n.id);
+                let radius = (isHovered ? 7 : 4) * n.scale;
+                
+                ctx.fillStyle = hwColors[n.hw];
+                
+                if (isHovered) {
+                    ctx.shadowBlur = 15; 
+                    ctx.shadowColor = "var(--accent-cyan)";
+                    ctx.fillStyle = "var(--accent-cyan)";
+                } else { 
+                    ctx.shadowBlur = 5;
+                    ctx.shadowColor = hwColors[n.hw];
+                }
+
+                ctx.beginPath(); ctx.arc(n.projX, n.projY, Math.max(1, radius), 0, Math.PI*2); ctx.fill();
+            });
+            ctx.shadowBlur = 0;
+
+            requestAnimationFrame(draw);
+        }
+
+        // --- INTERACTIE ---
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        }
+
+        container.addEventListener('mousemove', (e) => {
+            const pos = getMousePos(e);
+            
+            // Hover detectie
+            if (!state.isDragging) {
+                let closest = null, minDist = 20;
+                nodes.forEach(n => {
+                    if(n.projZ > 9) return;
+                    let d = Math.hypot(n.projX - pos.x, n.projY - pos.y);
+                    if(d < minDist) { minDist = d; closest = n.id; }
+                });
+                
+                state.hoverNode = closest;
+                
+                if (closest !== null) {
+                    const n = nodes[closest];
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = (pos.x + 15) + 'px';
+                    tooltip.style.top = (pos.y + 15) + 'px';
+                    document.getElementById('tt-bin').innerText = n.bin;
+                    document.getElementById('tt-val').innerText = n.id;
+                    document.getElementById('tt-hw').innerText = n.hw;
+                    document.getElementById('tt-orb').innerText = n.orbit;
+                    canvas.style.cursor = 'pointer';
+                } else {
+                    tooltip.style.display = 'none';
+                    canvas.style.cursor = 'crosshair';
+                }
+            }
+
+            // Camera drag
+            if (state.isDragging) {
+                let dx = pos.x - state.mouse.x;
+                let dy = pos.y - state.mouse.y;
+                state.cam.yaw += dx * 0.005;
+                state.cam.pitch += dy * 0.005;
+                state.mouse = pos;
+            }
+        });
+
+        container.addEventListener('mousedown', (e) => {
+            state.isDragging = true;
+            state.mouse = getMousePos(e);
+            state.autoRot = false;
+            document.getElementById('btn-auto-rot').classList.remove('active');
+            document.getElementById('btn-auto-rot').innerText = 'AUTOMATISCHE 3D ROTATIE: UIT';
+        });
+
+        window.addEventListener('mouseup', () => { state.isDragging = false; });
+        
+        // Touch support
+        container.addEventListener('touchstart', (e) => {
+            state.isDragging = true;
+            state.mouse = getMousePos(e);
+            state.autoRot = false;
+            document.getElementById('btn-auto-rot').classList.remove('active');
+            document.getElementById('btn-auto-rot').innerText = 'AUTOMATISCHE 3D ROTATIE: UIT';
+        }, {passive: false});
+        
+        container.addEventListener('touchmove', (e) => {
+            if(state.isDragging) {
+                e.preventDefault(); // Voorkom scrollen
+                const pos = getMousePos(e);
+                let dx = pos.x - state.mouse.x;
+                let dy = pos.y - state.mouse.y;
+                state.cam.yaw += dx * 0.005;
+                state.cam.pitch += dy * 0.005;
+                state.mouse = pos;
+            }
+        }, {passive: false});
+        
+        window.addEventListener('touchend', () => { state.isDragging = false; });
+
+        // Klok
+        setInterval(() => { document.getElementById('sys-clock').innerText = new Date().toLocaleTimeString(); }, 1000);
+        
+        // Start rendering
+        draw();
+    </script>
+</body>
+</html>

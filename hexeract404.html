@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VORTEX v110.26 // OMNI-AR INTERACT</title>
+    <style>
+        :root {
+            --bg-dark: #050505; --panel-bg: rgba(10, 10, 10, 0.85); --border-color: #1f1f1f;
+            --accent-cyan: #00e5ff; --accent-green: #00e676; --accent-yellow: #f5d400; 
+            --accent-red: #d3202a; --accent-turq: #13b5b1; --accent-purple: #e1b1ff; 
+            --tile-bg: #e9c46a; --tile-teal: #2a9d8f; --tile-mag: #c1497b;
+            --font-mono: 'Courier New', monospace;
+        }
+        body { background: var(--bg-dark); color: #e0e0e0; font-family: var(--font-mono); margin: 0; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; border-bottom: 1px solid var(--accent-cyan); background: rgba(0,0,0,0.9); z-index: 30; }
+        main { position: relative; flex-grow: 1; display: flex; overflow: hidden; }
+        
+        #video-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; opacity: 0.3; }
+        #cosmicCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; cursor: crosshair; }
+        
+        .side-panel { position: relative; z-index: 20; background: var(--panel-bg); border: 1px solid var(--border-color); padding: 15px; width: 320px; display: flex; flex-direction: column; gap: 10px; backdrop-filter: blur(5px); overflow-y: auto; }
+        .panel-left { border-right: 1px solid var(--accent-cyan); }
+        .panel-right { border-left: 1px solid var(--accent-cyan); margin-left: auto; }
+        
+        .section-title { color: var(--accent-cyan); font-size: 0.75em; text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 5px; margin-top: 10px; }
+        
+        .mod-404 { position: absolute; padding: 5px 8px; background: rgba(0, 229, 255, 0.05); border: 1px solid rgba(0, 229, 255, 0.3); color: var(--accent-cyan); font-size: 0.6em; pointer-events: none; z-index: 15; text-shadow: 0 0 5px var(--accent-cyan); }
+        .tl { top: 15px; left: 340px; border-left: 3px solid var(--accent-cyan); }
+        .tr { top: 15px; right: 340px; border-right: 3px solid var(--accent-cyan); text-align: right;}
+        .bl { bottom: 15px; left: 340px; border-left: 3px solid var(--accent-cyan); }
+        .br { bottom: 15px; right: 340px; border-right: 3px solid var(--accent-cyan); text-align: right;}
+
+        button { background: rgba(0,0,0,0.5); color: var(--accent-cyan); border: 1px solid var(--accent-cyan); padding: 8px; font-family: var(--font-mono); cursor: pointer; font-size: 0.7em; transition: 0.2s; text-transform: uppercase; font-weight: bold; border-radius: 4px;}
+        button:hover { background: rgba(0, 229, 255, 0.2); }
+        button.active { background: var(--accent-yellow); color: #000; border-color: var(--accent-yellow); }
+        
+        .rec-btn { border-color: var(--accent-red); color: var(--accent-red); }
+        .rec-btn.recording { background: var(--accent-red); color: #fff; animation: pulseRed 1.5s infinite; }
+        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(211, 32, 42, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(211, 32, 42, 0); } 100% { box-shadow: 0 0 0 0 rgba(211, 32, 42, 0); } }
+
+        .data-row { display: flex; justify-content: space-between; font-size: 0.75em; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 3px 0; }
+        #terminal { font-size: 0.65em; color: var(--accent-green); height: 120px; overflow-y: auto; line-height: 1.4; border-top: 1px solid #333; padding-top: 10px;}
+
+        /* Mobile Optimization */
+        @media (max-width: 900px) {
+            main { flex-direction: column; }
+            .side-panel { width: 100%; height: 25vh; border: none; border-bottom: 1px solid var(--accent-cyan); }
+            .panel-right { margin-left: 0; border-top: 1px solid var(--accent-cyan); }
+            #cosmicCanvas, #video-bg { position: relative; height: 50vh; }
+            .mod-404 { display: none; /* Hide HUD corners on mobile to save space */ }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="color: var(--accent-cyan); font-weight: bold; font-size:1.1em;">VORTEX v110.26 // OMNI-AR</div>
+        <div id="sys-clock" style="color: var(--accent-yellow);">00:00:00</div>
+        <div style="display: flex; gap: 8px;">
+            <button id="btn-camera">AR CAMERA</button>
+            <button id="btn-record" class="rec-btn">⏺ REC</button>
+        </div>
+    </header>
+    <main>
+        <div class="side-panel panel-left">
+            <div class="section-title">INTERACTIE & SONAR</div>
+            <button id="btn-auto-rot" class="active">AUTO-ROTATIE: AAN</button>
+            <button id="btn-sonar" style="border-color:var(--accent-yellow); color:var(--accent-yellow);">SONAR NET: UIT</button>
+            <p style="font-size: 0.65em; color: #aaa; margin: 5px 0;">Klik & sleep de lila knooppunten om de B(6) matrix te vervormen. Sleep de achtergrond om te roteren.</p>
+            
+            <div class="section-title">ASTRALE EPHEMERIS</div>
+            <div class="data-row"><span>ZON:</span><span id="d-sun" style="color:var(--accent-yellow)">--° / --°</span></div>
+            <div class="data-row"><span>MAAN:</span><span id="d-moon" style="color:#fff">--° / --°</span></div>
+            <div class="data-row"><span>VEGA:</span><span id="d-vega" style="color:var(--accent-turq)">--° / --°</span></div>
+            <div class="data-row"><span>DENEB:</span><span id="d-deneb" style="color:var(--accent-turq)">--° / --°</span></div>
+            <div class="data-row"><span>HERCULES:</span><span id="d-herc" style="color:var(--accent-green)">--° / --°</span></div>
+        </div>
+
+        <div style="position: relative; flex-grow: 1;">
+            <video id="video-bg" autoplay playsinline></video>
+            <canvas id="cosmicCanvas"></canvas>
+            <div class="mod-404 tl">SYS.MOD<br>40.4</div>
+            <div class="mod-404 tr">GRID.MOD<br>40.4</div>
+            <div class="mod-404 bl" id="hud-node">NODE: --<br>HW: --</div>
+            <div class="mod-404 br">SYNC.MOD<br>AR-ACTIVE</div>
+        </div>
+
+        <div class="side-panel panel-right">
+            <div class="section-title">GRID & EXPORT</div>
+            <button id="btn-grid" class="active" style="border-color:var(--tile-teal); color:var(--tile-teal);">GRID.MOD 40.4 (AAN)</button>
+            <button id="btn-reset-nodes" style="border-color:var(--accent-purple); color:var(--accent-purple);">RESET KnoopPUNTEN</button>
+            <button id="btn-tex" style="border-color:var(--accent-purple); color:var(--accent-purple);">📄 DATA.TEX EXPORT</button>
+            <button id="btn-audio">AUDIO OSCILLATOR</button>
+
+            <div id="terminal">
+                > VORTEX 110.26 AR-CORE INITIALIZED...<br>
+                > QUATERNION ENGINE ACTIVE...<br>
+                > GRID.MOD 40.4 FLOOR GENERATED...<br>
+                > AWAITING CAMERA STREAM...<br>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('cosmicCanvas');
+        const ctx = canvas.getContext('2d');
+        const video = document.getElementById('video-bg');
+        
+        function logTerminal(msg) {
+            const t = document.getElementById('terminal');
+            t.innerHTML = `> [${new Date().toLocaleTimeString()}] ${msg}<br>` + t.innerHTML;
+        }
+
+        // --- QUATERNION ENGINE ---
+        class Quaternion {
+            constructor(w=1, x=0, y=0, z=0) { this.w=w; this.x=x; this.y=y; this.z=z; }
+            multiply(q) {
+                return new Quaternion(
+                    this.w*q.w - this.x*q.x - this.y*q.y - this.z*q.z,
+                    this.w*q.x + this.x*q.w + this.y*q.z - this.z*q.y,
+                    this.w*q.y - this.x*q.z + this.y*q.w + this.z*q.x,
+                    this.w*q.z + this.x*q.y - this.y*q.x + this.z*q.w
+                );
+            }
+            conjugate() { return new Quaternion(this.w, -this.x, -this.y, -this.z); }
+            rotateVector(v) {
+                let vecQ = new Quaternion(0, v.x, v.y, v.z);
+                let res = this.multiply(vecQ).multiply(this.conjugate());
+                return { x: res.x, y: res.y, z: res.z };
+            }
+        }
+        function eulerToQ(p, y, r) {
+            let cy = Math.cos(y*0.5), sy = Math.sin(y*0.5), cp = Math.cos(p*0.5), sp = Math.sin(p*0.5), cr = Math.cos(r*0.5), sr = Math.sin(r*0.5);
+            return new Quaternion(cr*cp*cy+sr*sp*sy, sr*cp*cy-cr*sp*sy, cr*sp*cy+sr*cp*sy, cr*cp*sy-sr*sp*cy);
+        }
+
+        // --- STATE & DATA ---
+        let state = {
+            cam: { pitch: 0.4, yaw: 0, roll: 0, zoom: 100 },
+            autoRot: true,
+            showGrid: true,
+            sonar: { active: false, angle: 0 },
+            selectedNode: null,
+            isDraggingNode: false,
+            isDraggingCam: false,
+            mouse: { x: 0, y: 0 },
+            record: { active: false, recorder: null, chunks: [] },
+            audio: { active: false, ctx: null, osc: null, dest: null },
+            astro: { sun: {az:0, el:0}, moon: {az:0, el:0}, vega: {az:0, el:0}, deneb: {az:0, el:0}, herc: {az:0, el:0} }
+        };
+
+        // --- 6D HEXERACT LOGIC ---
+        let nodes = [];
+        const edges = [];
+        function getHW(n) { let w=0; for(let i=0; i<6; i++) if(n & (1<<i)) w++; return w; }
+        function shl(n) { return ((n << 1) | (n >> 5)) & 63; }
+        function getOrbit(n) {
+            let min = n, curr = n;
+            for(let i=0; i<6; i++) { curr = shl(curr); if(curr < min) min = curr; }
+            return min;
+        }
+
+        const orbits = {};
+        for(let i=0; i<64; i++) { let o = getOrbit(i); if(!orbits[o]) orbits[o] = []; orbits[o].push(i); }
+        
+        function initNodes() {
+            nodes = [];
+            for(let i=0; i<64; i++) {
+                let hw = getHW(i); let o = getOrbit(i); let orbitList = orbits[o];
+                let angle = (orbitList.indexOf(i) / orbitList.length) * Math.PI * 2;
+                let radius = 0.5 + (o / 64) * 2;
+                nodes.push({
+                    id: i, hw: hw,
+                    x: Math.cos(angle) * radius, y: (hw - 3) * 0.8, z: Math.sin(angle) * radius,
+                    offX: 0, offY: 0, offZ: 0, projX: 0, projY: 0, projZ: 0, hit: 0
+                });
+            }
+        }
+        initNodes();
+
+        for(let i=0; i<64; i++) {
+            for(let j=i+1; j<64; j++) if(getHW(i^j) === 1) edges.push([i,j]);
+        }
+
+        // --- GRID.MOD 40.4 (3D Vloer) ---
+        const gridTiles = [];
+        function initGrid() {
+            const size = 1.2;
+            const yFloor = 3.5; // Onder de matrix
+            for(let r = -3; r <= 3; r++) {
+                for(let c = -3; c <= 3; c++) {
+                    let cx = c * size; let cz = r * size;
+                    gridTiles.push({
+                        c: {x: cx, y: yFloor, z: cz},
+                        tl: {x: cx - size/2, y: yFloor, z: cz - size/2},
+                        tr: {x: cx + size/2, y: yFloor, z: cz - size/2},
+                        bl: {x: cx - size/2, y: yFloor, z: cz + size/2},
+                        br: {x: cx + size/2, y: yFloor, z: cz + size/2},
+                    });
+                }
+            }
+        }
+        initGrid();
+
+        // --- EPHEMERIS ---
+        const starCoords = { vega: { ra: 279.23, dec: 38.78 }, deneb: { ra: 310.35, dec: 45.28 }, herc: { ra: 250.50, dec: 31.50 } };
+        function getJulianDate(d) { return (d.getTime() / 86400000) + 2440587.5; }
+        function calculateElevAz(raDeg, decDeg, lat, lon, jd) {
+            const rad = Math.PI / 180, deg = 180 / Math.PI; const d = jd - 2451545.0;
+            let gmst = (280.46061837 + 360.98564736629 * d) % 360; if (gmst < 0) gmst += 360;
+            let lst = (gmst + lon) % 360; if (lst < 0) lst += 360; let ha = (lst - raDeg) % 360; if (ha < 0) ha += 360;
+            const haRad = ha * rad, decRad = decDeg * rad, latRad = lat * rad;
+            const sinElev = Math.sin(decRad) * Math.sin(latRad) + Math.cos(decRad) * Math.cos(latRad) * Math.cos(haRad); 
+            const elevRad = Math.asin(sinElev);
+            const cosAz = (Math.sin(decRad) - Math.sin(elevRad) * Math.sin(latRad)) / (Math.cos(elevRad) * Math.cos(latRad));
+            let az = Math.acos(cosAz) * deg; if (Math.sin(haRad) > 0) az = 360 - az;
+            return { elev: elevRad * deg, az: az };
+        }
+        function updateLiveEphemeris() {
+            const now = new Date(); const jd = getJulianDate(now); const observer = { lat: 52.246459, lon: 5.237913 };
+            const sunRA = (280.46 + 0.9856474 * (jd - 2451545.0)) % 360; const sunPos = calculateElevAz(sunRA, 0, observer.lat, observer.lon, jd);
+            state.astro.sun = { az: sunPos.az, el: sunPos.elev };
+            const moonRA = (218.316 + 13.176 * (jd - 2451545.0)) % 360; const moonPos = calculateElevAz(moonRA, 5, observer.lat, observer.lon, jd);
+            state.astro.moon = { az: moonPos.az, el: moonPos.elev };
+            ['vega', 'deneb', 'herc'].forEach(s => {
+                let pos = calculateElevAz(starCoords[s].ra, starCoords[s].dec, observer.lat, observer.lon, jd);
+                state.astro[s] = { az: pos.az, el: pos.elev };
+            });
+            document.getElementById('sys-clock').innerText = now.toLocaleTimeString();
+            document.getElementById('d-sun').innerText = `${state.astro.sun.el.toFixed(1)}° / ${state.astro.sun.az.toFixed(1)}°`;
+            document.getElementById('d-moon').innerText = `${state.astro.moon.el.toFixed(1)}° / ${state.astro.moon.az.toFixed(1)}°`;
+            document.getElementById('d-vega').innerText = `${state.astro.vega.el.toFixed(1)}° / ${state.astro.vega.az.toFixed(1)}°`;
+            document.getElementById('d-deneb').innerText = `${state.astro.deneb.el.toFixed(1)}° / ${state.astro.deneb.az.toFixed(1)}°`;
+            document.getElementById('d-herc').innerText = `${state.astro.herc.el.toFixed(1)}° / ${state.astro.herc.az.toFixed(1)}°`;
+        }
+
+        // --- RENDER ENGINE ---
+        function project(v) {
+            let q = eulerToQ(state.cam.pitch, state.cam.yaw, state.cam.roll);
+            let rotated = q.rotateVector({ x: v.x, y: v.y, z: v.z });
+            let factor = 1000 / (1000 - rotated.z * 80);
+            return { x: rotated.x * state.cam.zoom * factor, y: rotated.y * state.cam.zoom * factor, z: rotated.z, f: factor };
+        }
+
+        function drawTile(ctx, cx, cy, tile) {
+            let pTl = project(tile.tl), pTr = project(tile.tr), pBl = project(tile.bl), pBr = project(tile.br), pC = project(tile.c);
+            
+            // Controleer of de tegel achter de camera ligt
+            if(pC.z > 12) return;
+
+            // Base Yellow
+            ctx.fillStyle = "rgba(233, 196, 106, 0.4)";
+            ctx.beginPath(); ctx.moveTo(cx+pTl.x, cy+pTl.y); ctx.lineTo(cx+pTr.x, cy+pTr.y); ctx.lineTo(cx+pBr.x, cy+pBr.y); ctx.lineTo(cx+pBl.x, cy+pBl.y); ctx.fill();
+            
+            // Left Teal
+            ctx.fillStyle = "rgba(42, 157, 143, 0.6)";
+            ctx.beginPath(); ctx.moveTo(cx+pTl.x, cy+pTl.y); ctx.lineTo(cx+pC.x, cy+pC.y); ctx.lineTo(cx+pBl.x, cy+pBl.y); ctx.fill();
+            // Right Teal
+            ctx.beginPath(); ctx.moveTo(cx+pTr.x, cy+pTr.y); ctx.lineTo(cx+pC.x, cy+pC.y); ctx.lineTo(cx+pBr.x, cy+pBr.y); ctx.fill();
+            
+            // Top Magenta
+            ctx.fillStyle = "rgba(193, 73, 123, 0.6)";
+            ctx.beginPath(); ctx.moveTo(cx+pTl.x, cy+pTl.y); ctx.lineTo(cx+pC.x, cy+pC.y); ctx.lineTo(cx+pTr.x, cy+pTr.y); ctx.fill();
+            // Bottom Magenta
+            ctx.beginPath(); ctx.moveTo(cx+pBl.x, cy+pBl.y); ctx.lineTo(cx+pC.x, cy+pC.y); ctx.lineTo(cx+pBr.x, cy+pBr.y); ctx.fill();
+            
+            // Wireframe
+            ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.lineWidth = 0.5;
+            ctx.stroke();
+        }
+
+        function draw() {
+            canvas.width = canvas.parentElement.clientWidth; canvas.height = canvas.parentElement.clientHeight;
+            const cx = canvas.width/2, cy = canvas.height/2;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if(state.autoRot) state.cam.yaw += 0.003;
+            if(state.sonar.active) state.sonar.angle = (state.sonar.angle + 0.05) % (Math.PI * 2);
+
+            // 1. Z-Sort en teken GRID
+            if(state.showGrid) {
+                let projTiles = gridTiles.map(t => ({ t: t, z: project(t.c).z }));
+                projTiles.sort((a,b) => b.z - a.z); // Draw back to front
+                projTiles.forEach(pt => drawTile(ctx, cx, cy, pt.t));
+            }
+
+            // 2. Update Node posities
+            nodes.forEach(n => {
+                let v = { x: n.x + n.offX, y: n.y + n.offY, z: n.z + n.offZ };
+                let p = project(v);
+                n.projX = cx + p.x; n.projY = cy + p.y; n.projZ = p.z; n.scale = p.f;
+                
+                // Sonar Hit detectie
+                if (state.sonar.active) {
+                    let nodeAngle = Math.atan2(v.z, v.x);
+                    if (nodeAngle < 0) nodeAngle += Math.PI*2;
+                    let diff = Math.abs(nodeAngle - state.sonar.angle);
+                    if (diff > Math.PI) diff = Math.PI*2 - diff;
+                    if (diff < 0.2) n.hit = 1.0;
+                }
+                if (n.hit > 0) n.hit -= 0.05;
+            });
+
+            // 3. Teken Ribben
+            ctx.lineWidth = 1.2;
+            edges.forEach(edge => {
+                let n1 = nodes[edge[0]], n2 = nodes[edge[1]];
+                if(n1.projZ > 12 || n2.projZ > 12) return; // Behind camera
+                let isSelected = (state.selectedNode === edge[0] || state.selectedNode === edge[1]);
+                ctx.strokeStyle = isSelected ? "var(--accent-red)" : "rgba(245, 212, 0, 0.2)";
+                if(isSelected) ctx.lineWidth = 2.5; else ctx.lineWidth = 1.2;
+                ctx.beginPath(); ctx.moveTo(n1.projX, n1.projY); ctx.lineTo(n2.projX, n2.projY); ctx.stroke();
+            });
+
+            // 4. Teken Knooppunten
+            let colors = ["#4a148c", "#880e4f", "#d81b60", "#f06292", "#ffb74d", "#ffd54f", "#fff176"];
+            nodes.forEach(n => {
+                if(n.projZ > 12) return;
+                let isSelected = (state.selectedNode === n.id);
+                let baseRadius = (isSelected ? 6 : 3) * n.scale;
+                let radius = baseRadius + (n.hit * 8 * n.scale);
+                
+                ctx.fillStyle = isSelected ? "var(--accent-cyan)" : colors[n.hw];
+                if (n.hit > 0) {
+                    ctx.shadowBlur = 15; ctx.shadowColor = "var(--accent-cyan)";
+                    ctx.fillStyle = "var(--accent-cyan)";
+                } else { ctx.shadowBlur = 0; }
+
+                ctx.beginPath(); ctx.arc(n.projX, n.projY, Math.max(0.5, radius), 0, Math.PI*2); ctx.fill();
+            });
+            ctx.shadowBlur = 0;
+
+            // 5. Teken Sonar Sweep
+            if (state.sonar.active) {
+                let sLine = project({x: Math.cos(state.sonar.angle)*4, y: 0, z: Math.sin(state.sonar.angle)*4});
+                let cP = project({x:0, y:0, z:0});
+                ctx.strokeStyle = "var(--accent-yellow)"; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(cx+cP.x, cy+cP.y); ctx.lineTo(cx+sLine.x, cy+sLine.y); ctx.stroke();
+            }
+
+            // 6. Astrale Objecten (Zon = Geel, Sterren = Turkoois)
+            let sAz = state.astro.sun.az * Math.PI/180, sEl = state.astro.sun.el * Math.PI/180;
+            let sunP = project({ x: Math.sin(sAz)*5, y: Math.sin(sEl)*5, z: Math.cos(sAz)*5 });
+            ctx.fillStyle = "var(--accent-yellow)"; ctx.beginPath(); ctx.arc(cx+sunP.x, cy+sunP.y, 8*sunP.f, 0, Math.PI*2); ctx.fill();
+
+            ['vega', 'deneb', 'herc'].forEach(s => {
+                let az = state.astro[s].az * Math.PI/180, el = state.astro[s].el * Math.PI/180;
+                let p = project({ x: Math.sin(az)*5, y: Math.sin(el)*5, z: Math.cos(az)*5 });
+                if(p.z < 12) {
+                    ctx.fillStyle = "var(--accent-turq)"; ctx.beginPath(); ctx.arc(cx+p.x, cy+p.y, 4*p.f, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = "#fff"; ctx.font = "10px Courier New"; ctx.fillText(s.toUpperCase(), cx+p.x+6, cy+p.y+3);
+                }
+            });
+
+            requestAnimationFrame(draw);
+        }
+
+        // --- INTERACTIE ---
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        }
+
+        canvas.onmousedown = canvas.ontouchstart = (e) => {
+            const pos = getMousePos(e);
+            let closest = null, minDist = 25; // 25px hit radius
+            nodes.forEach(n => {
+                let d = Math.hypot(n.projX - pos.x, n.projY - pos.y);
+                if(d < minDist && n.projZ < 12) { minDist = d; closest = n.id; }
+            });
+            
+            if(closest !== null) {
+                state.selectedNode = closest;
+                state.isDraggingNode = true;
+                state.autoRot = false; document.getElementById('btn-auto-rot').classList.remove('active');
+                document.getElementById('hud-node').innerHTML = `NODE: ${closest}<br>HW: ${nodes[closest].hw}`;
+                logTerminal(`Node ${closest} geselecteerd.`);
+            } else {
+                state.isDraggingCam = true;
+                state.mouse = pos;
+                state.autoRot = false; document.getElementById('btn-auto-rot').classList.remove('active');
+            }
+        };
+
+        window.onmousemove = window.ontouchmove = (e) => {
+            if(!state.isDraggingNode && !state.isDraggingCam) return;
+            const pos = getMousePos(e);
+            
+            if(state.isDraggingNode && state.selectedNode !== null) {
+                const n = nodes[state.selectedNode];
+                // Local deformation (simplified translation relative to screen)
+                n.offX += (pos.x - n.projX) * 0.01;
+                n.offY += (pos.y - n.projY) * 0.01;
+            } else if (state.isDraggingCam) {
+                let dx = pos.x - state.mouse.x;
+                let dy = pos.y - state.mouse.y;
+                state.cam.yaw += dx * 0.005;
+                state.cam.pitch += dy * 0.005;
+                state.mouse = pos;
+            }
+        };
+
+        window.onmouseup = window.ontouchend = () => { state.isDraggingNode = false; state.isDraggingCam = false; };
+
+        // --- BUTTON HANDLERS ---
+        document.getElementById('btn-auto-rot').onclick = function() { state.autoRot = !state.autoRot; this.classList.toggle('active'); this.innerText = `AUTO-ROTATIE: ${state.autoRot?'AAN':'UIT'}`; };
+        document.getElementById('btn-sonar').onclick = function() { state.sonar.active = !state.sonar.active; this.classList.toggle('active'); this.innerText = `SONAR NET: ${state.sonar.active?'AAN':'UIT'}`; };
+        document.getElementById('btn-grid').onclick = function() { state.showGrid = !state.showGrid; this.classList.toggle('active'); this.innerText = `GRID.MOD 40.4 (${state.showGrid?'AAN':'UIT'})`; };
+        document.getElementById('btn-reset-nodes').onclick = () => { nodes.forEach(n => { n.offX=0; n.offY=0; n.offZ=0; }); logTerminal("Knooppunten gereset."); };
+        
+        document.getElementById('btn-camera').onclick = async function() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                video.srcObject = stream;
+                this.innerText = "CAMERA ACTIEF";
+                this.style.color = "var(--accent-green)"; this.style.borderColor = "var(--accent-green)";
+                logTerminal("Live AR-Camera Feed Verbonden.");
+            } catch (e) { logTerminal("Fout: Camera toegang geweigerd of niet beschikbaar."); }
+        };
+
+        document.getElementById('btn-record').onclick = function() {
+            if(!state.record.active) {
+                const stream = canvas.captureStream(30);
+                if(state.audio.active && state.audio.dest) stream.addTrack(state.audio.dest.stream.getAudioTracks()[0]);
+                state.record.recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+                state.record.chunks = [];
+                state.record.recorder.ondataavailable = e => state.record.chunks.push(e.data);
+                state.record.recorder.onstop = () => {
+                    const blob = new Blob(state.record.chunks, {type:'video/webm'});
+                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `VORTEX_AR_${Date.now()}.webm`; a.click();
+                };
+                state.record.recorder.start(); state.record.active = true; this.classList.add('recording'); this.innerText = "⏹ STOP";
+            } else { state.record.recorder.stop(); state.record.active = false; this.classList.remove('recording'); this.innerText = "⏺ REC"; }
+        };
+
+        document.getElementById('btn-audio').onclick = function() {
+            if(!state.audio.active) {
+                state.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                state.audio.dest = state.audio.ctx.createMediaStreamDestination();
+                state.audio.osc = state.audio.ctx.createOscillator();
+                let g = state.audio.ctx.createGain(); g.gain.value = 0.05;
+                state.audio.osc.connect(g); g.connect(state.audio.ctx.destination); g.connect(state.audio.dest);
+                state.audio.osc.start(); state.audio.active = true; this.classList.add('active');
+            } else { state.audio.osc.stop(); state.audio.active = false; this.classList.remove('active'); }
+        };
+
+        document.getElementById('btn-tex').onclick = function() {
+            const tex = `\\documentclass{article}\\begin{document}VORTEX v110.26 OMNI-AR\\par ZON: ${state.astro.sun.az.toFixed(2)}^\\circ\\par VEGA: ${state.astro.vega.az.toFixed(2)}^\\circ\\end{document}`;
+            const blob = new Blob([tex], {type: 'text/plain'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'vortex_ar.tex'; a.click();
+        };
+
+        // Init
+        updateLiveEphemeris();
+        setInterval(updateLiveEphemeris, 1000);
+        draw();
+    </script>
+</body>
+</html>
