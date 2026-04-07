@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX v105 // MASTER DASHBOARD NEXUS</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        :root {
+            --bg-dark: #020202;
+            --panel-bg: #07070a;
+            --border-color: #1a1a1a;
+            --accent-cyan: #00e5ff;
+            --accent-gold: #ffd700;
+            --accent-blue: #2979ff;
+            --accent-green: #00e676;
+            --accent-red: #ff3d00;
+            --accent-purple: #d500f9;
+            --text-main: #d0d0d0;
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+        body, html {
+            background-color: var(--bg-dark); color: var(--text-main);
+            font-family: var(--font-mono); margin: 0; padding: 0;
+            height: 100vh; overflow: hidden; display: flex; flex-direction: column;
+        }
+        header {
+            background: #000; border-bottom: 2px solid var(--accent-gold);
+            padding: 10px 20px; display: flex; justify-content: space-between; align-items: center;
+            z-index: 10; height: 60px; box-sizing: border-box;
+        }
+        .title { color: var(--accent-gold); font-size: 1.4em; font-weight: bold; letter-spacing: 2px; }
+        .subtitle { color: var(--accent-cyan); font-size: 0.8em; letter-spacing: 1px; margin-top: 4px; }
+        
+        main { 
+            display: grid; grid-template-columns: 380px 1fr; flex-grow: 1; height: calc(100vh - 60px); 
+        }
+        
+        /* Sidebar Styles */
+        .sidebar { 
+            background: var(--panel-bg); border-right: 1px solid var(--border-color); 
+            padding: 15px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; 
+        }
+        .data-block { background: #000; border: 1px solid #222; padding: 12px; position: relative; }
+        .data-block::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+        
+        .db-net::before { background: var(--accent-green); }
+        .db-astro::before { background: var(--accent-cyan); }
+        .db-geo::before { background: var(--accent-purple); }
+        .db-audio::before { background: var(--accent-gold); }
+
+        .data-title { font-size: 0.75em; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; color: #fff; }
+        .data-value { font-size: 1em; color: #fff; font-weight: bold; }
+        .desc { font-size: 0.7em; color: #888; margin-top: 5px; line-height: 1.4; }
+
+        /* Actieve LEDs */
+        .led-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 0.75em; color: #aaa; }
+        .led { width: 10px; height: 10px; border-radius: 50%; background: #222; box-shadow: inset 0 0 5px #000; transition: 0.3s; }
+        .led.active-green { background: var(--accent-green); box-shadow: 0 0 10px var(--accent-green); }
+        .led.active-cyan { background: var(--accent-cyan); box-shadow: 0 0 10px var(--accent-cyan); }
+        
+        /* Dual View Container (Rechterkant) */
+        .dual-view { display: flex; flex-direction: column; height: 100%; width: 100%; }
+        
+        /* Top: Astro Canvas */
+        #astro-container {
+            flex: 1; position: relative; background: radial-gradient(circle at center, #050a14 0%, #000 100%);
+            border-bottom: 2px solid var(--accent-blue); overflow: hidden; display: flex; justify-content: center; align-items: center;
+        }
+        canvas { max-width: 100%; max-height: 100%; }
+        
+        /* Bottom: Geo Map */
+        #map-container { flex: 1.2; position: relative; background: #000; }
+        #geoMap { width: 100%; height: 100%; filter: invert(100%) hue-rotate(180deg) brightness(85%) contrast(110%) grayscale(40%); }
+        
+        /* Overlays */
+        .hud-overlay { position: absolute; color: rgba(255, 255, 255, 0.6); font-size: 0.7em; pointer-events: none; z-index: 1000; text-shadow: 0 0 5px #000; }
+        .hud-tr { top: 10px; right: 10px; text-align: right; color: var(--accent-cyan); }
+        .hud-bl { bottom: 20px; left: 10px; color: var(--accent-gold); }
+
+        button { background: rgba(0, 229, 255, 0.05); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 10px; cursor: pointer; width: 100%; text-transform: uppercase; font-family: inherit; font-weight: bold; transition: 0.3s; margin-top: 5px; }
+        button:hover { background: rgba(0, 229, 255, 0.2); }
+        button:disabled { opacity: 0.3; cursor: not-allowed; border-color: #555; color: #555; }
+        button.audio-btn { border-color: var(--accent-gold); color: var(--accent-gold); }
+        button.audio-btn:hover { background: rgba(255, 215, 0, 0.1); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <div class="title">VORTEX v105 // MASTER DASHBOARD</div>
+            <div class="subtitle">MYTHOLOGIE, AKOESTIEK & GEOLOGIE (100×Φ ALIGNMENT)</div>
+        </div>
+        <div style="color: var(--accent-green); font-size: 0.85em; text-align: right; line-height: 1.4;">
+            GNOMON <span id="my-id" style="color:#fff">...</span><br>
+            TIME-SYNC: <span id="clock" style="color:var(--accent-cyan)">00:00:00</span>
+        </div>
+    </header>
+
+    <main>
+        <div class="sidebar">
+            
+            <div class="data-block db-net">
+                <div class="data-title">Transmissie Stack (P2P & Sensor)</div>
+                <div class="led-row"><span>Node-RED Sonar (ws://1880)</span><div id="led-ws" class="led"></div></div>
+                <div class="led-row"><span>WebRTC 52-bit DataChannel</span><div id="led-rtc" class="led"></div></div>
+                <button id="btnNetwork" onclick="initNetwork()">1. VERBIND SIGNALING</button>
+            </div>
+
+            <div class="data-block db-astro">
+                <div class="data-title">Topocentrische Projectie</div>
+                <div class="desc">
+                    <strong style="color:var(--accent-orange)">Leeuw (150°):</strong> Kosmische Orde (Regulus)<br>
+                    <strong style="color:var(--accent-cyan)">Orion (150.3°):</strong> Stereografische kruising<br>
+                    <strong style="color:#fff">Vega/Deneb:</strong> Galactische ankers
+                </div>
+            </div>
+
+            <div class="data-block db-geo">
+                <div class="data-title">Archeo-Stratigrafie</div>
+                <div class="desc">
+                    Megalithische as verbonden vanaf Stonehenge, door de verdronken Oosterschelde, via Langerak, landend op de 150.000 jaar oude keileemresten van de Aardjesberg.
+                </div>
+            </div>
+
+            <div class="data-block db-audio">
+                <div class="data-title">110 Hz Neuro-Akoestiek</div>
+                <div class="data-value" id="pulse-status" style="color: var(--accent-gold);">CONDENSATOR RUST</div>
+                <div class="desc">
+                    100 µF hardware-puls via de 161.6° (100×Φ) Gulden As. Fysieke PM-synthese ontworpen om de rechterhersenhelft te activeren.
+                </div>
+                <button class="audio-btn" onclick="togglePulse()">ACTIVEREN LFO (110 Hz)</button>
+            </div>
+
+            <div id="terminal" style="font-size: 0.65em; color: #555; margin-top: auto; border-top: 1px dashed #333; padding-top: 10px; height: 100px; overflow-y: auto; line-height: 1.4;">
+                > VORTEX KERN GELADEN.<br>
+                > WACHTEN OP INIT...<br>
+            </div>
+        </div>
+
+        <div class="dual-view">
+            <div id="astro-container">
+                <canvas id="astroCanvas" width="800" height="350"></canvas>
+                <div class="hud-overlay hud-tr">
+                    PROJECTIE: ZENIT-ASTROLABIUM<br>
+                    WAARNEMER: (9,9) GNOMON<br>
+                    ROTATIE: LEO (10:14 RA)
+                </div>
+            </div>
+
+            <div id="map-container">
+                <div id="geoMap"></div>
+                <div class="hud-overlay hud-bl">
+                    VORTEX LEYLIJN NETWERK<br>
+                    STONEHENGE &rarr; NEHALENNIA &rarr; GOOI
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        const myID = "VTX-" + Math.random().toString(36).substr(2, 5).toUpperCase();
+        document.getElementById('my-id').innerText = myID;
+        
+        let ws, pc, dc;
+        let iceQueue = [];
+        let time = 0;
+        let isPulsing = false;
+        let pulseTimer;
+
+        function log(msg, color = "#555") {
+            const term = document.getElementById('terminal');
+            term.innerHTML += `<div><span style="color:${color}">> ${msg}</span></div>`;
+            term.scrollTop = term.scrollHeight;
+        }
+
+        // ==========================================
+        // 1. NETWERK & P2P LOGICA
+        // ==========================================
+        function sendSignal(data) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                data.senderID = myID;
+                ws.send(JSON.stringify({ payload: data }));
+                log(`[TX] Signaal verzonden: ${data.type || 'ICE'}`, "#00e5ff");
+            }
+        }
+
+        function initNetwork() {
+            // Als we al verbonden zijn met WSS, open dan de P2P tunnel
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                initiateOffer();
+                return;
+            }
+
+            log(`Verbinden met Node-RED Signal Server (ws://127.0.0.1:1880/vortex)...`);
+            ws = new WebSocket("ws://127.0.0.1:1880/vortex");
+
+            ws.onopen = () => {
+                document.getElementById('led-ws').classList.add('active-cyan');
+                log("Sensor Net Actief. WSS Verbonden.", "#00e5ff");
+                setupWebRTC();
+                
+                const btn = document.getElementById('btnNetwork');
+                btn.innerText = "2. OPEN OMNI-BRIDGE (P2P)";
+                btn.style.borderColor = "var(--accent-green)";
+                btn.style.color = "var(--accent-green)";
+            };
+
+            ws.onerror = () => {
+                log("Fout: Kan niet verbinden met WSS. Draait de Node-RED server op poort 1880?", "#ff3d00");
+            };
+
+            ws.onmessage = async (e) => {
+                const msg = JSON.parse(e.data);
+                const data = msg.payload || msg;
+
+                if (data.senderID === myID) return; // Negeer eigen echo's
+
+                log(`[RX] Signaal ontvangen: ${data.type || 'ICE'}`, "#d500f9");
+
+                if (data.type === 'offer') {
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    sendSignal({ type: 'answer', answer: answer });
+                    processIceQueue();
+                } 
+                else if (data.type === 'answer') {
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                    processIceQueue();
+                } 
+                else if (data.candidate) {
+                    if (!pc.remoteDescription) {
+                        iceQueue.push(data.candidate);
+                    } else {
+                        try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(err) {}
+                    }
+                }
+            };
+        }
+
+        function setupWebRTC() {
+            pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+
+            pc.onicecandidate = e => {
+                if (e.candidate) sendSignal({ candidate: e.candidate });
+            };
+
+            pc.onconnectionstatechange = () => {
+                if (pc.connectionState === 'connected') {
+                    document.getElementById('led-rtc').classList.add('active-green');
+                    log("OMNI-BRIDGE Gekoppeld. 52-bit matrix P2P in sync.", "#00e676");
+                    document.getElementById('btnNetwork').disabled = true;
+                    document.getElementById('btnNetwork').innerText = "TUNNEL ACTIEF";
+                } else if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+                    document.getElementById('led-rtc').classList.remove('active-green');
+                    log("OMNI-BRIDGE Verbroken.", "#ff3d00");
+                    document.getElementById('btnNetwork').disabled = false;
+                }
+            };
+
+            // Listener voor DataChannel dat vanaf de Master wordt geopend
+            pc.ondatachannel = (e) => {
+                dc = e.channel;
+                setupDataChannel();
+            };
+        }
+
+        async function initiateOffer() {
+            log("Opzetten WebRTC P2P DataChannel (ordered: false)...", "#ffd700");
+            // Maak het DataKanaal onbetrouwbaar/supersnel voor point cloud / volumetrische data
+            dc = pc.createDataChannel("vortex_sync", { ordered: false, maxRetransmits: 0 });
+            setupDataChannel();
+
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            sendSignal({ type: 'offer', offer: offer });
+        }
+
+        function setupDataChannel() {
+            dc.onopen = () => log("DataChannel OPEN (Latentie < 40ms gereed).", "#00e676");
+            dc.onmessage = (e) => {
+                log(`[RX P2P] Sync Data: ${e.data}`, "#f5d400");
+                // Synchroniseer LFO via Netwerk
+                if(e.data === "LFO_START" && !isPulsing) togglePulse(true);
+                if(e.data === "LFO_STOP" && isPulsing) togglePulse(true);
+            };
+        }
+
+        async function processIceQueue() {
+            while(iceQueue.length > 0) {
+                const candidate = iceQueue.shift();
+                try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch(e) {}
+            }
+        }
+
+        // ==========================================
+        // 2. LFO PULS LOGICA (110 Hz / 161.6)
+        // ==========================================
+        function togglePulse(fromRemote = false) {
+            isPulsing = !isPulsing;
+            const status = document.getElementById('pulse-status');
+            
+            if(isPulsing) {
+                if(!fromRemote) log("100 µF Condensator geactiveerd. LFO draait op 110 Hz.");
+                status.innerText = "PULSEREND (110 Hz / 161.6°)";
+                status.style.color = "var(--accent-cyan)";
+                
+                pulseTimer = setInterval(() => {
+                    let currentWidth = leyPath.options.weight;
+                    leyPath.setStyle({ 
+                        color: currentWidth === 3 ? '#00e5ff' : '#f5d400', 
+                        weight: currentWidth === 3 ? 5 : 3,
+                        dashArray: currentWidth === 3 ? null : '6, 6'
+                    });
+                }, 1000 / 1.618); // Pulsritme op basis van Gulden Snede
+            } else {
+                if(!fromRemote) log("LFO gedeactiveerd. Condensator in rust.");
+                status.innerText = "CONDENSATOR RUST";
+                status.style.color = "var(--accent-gold)";
+                clearInterval(pulseTimer);
+                leyPath.setStyle({ color: '#d500f9', weight: 3, dashArray: '6, 6' });
+            }
+
+            // Sync deze actie naar de andere Node via P2P
+            if (!fromRemote && dc && dc.readyState === 'open') {
+                dc.send(isPulsing ? "LFO_START" : "LFO_STOP");
+                log("[TX] LFO Sync verzonden via OMNI-BRIDGE", "#00e676");
+            }
+        }
+
+        // ==========================================
+        // 3. ASTRO-TRACKER (CANVAS)
+        // ==========================================
+        const canvas = document.getElementById('astroCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const stars = [
+            { naam: "Leeuw (150°)", hoek: 150.0, kleur: "#ff9800", dist: 0.8 },
+            { naam: "Orion (150.3°)", hoek: 150.3, kleur: "#00e5ff", dist: 0.6 },
+            { naam: "Zon (108°)", hoek: 108.0, kleur: "#ff3d00", dist: 0.9 },
+            { naam: "Vega (331°)", hoek: 331.0, kleur: "#00e676", dist: 0.7 },
+            { naam: "Deneb (313.9°)", hoek: 313.9, kleur: "#ffffff", dist: 0.75 }
+        ];
+
+        function drawAstro() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const maxRadius = Math.min(cx, cy) - 30;
+
+            ctx.strokeStyle = "rgba(255,255,255,0.03)";
+            ctx.lineWidth = 1;
+            let step = canvas.width / 17;
+            for(let i=0; i<17; i++) {
+                ctx.beginPath(); ctx.moveTo(i*step, 0); ctx.lineTo(i*step, canvas.height); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i*step); ctx.lineTo(canvas.width, i*step); ctx.stroke();
+            }
+
+            ctx.strokeStyle = 'rgba(0, 229, 255, 0.15)';
+            for (let r = 40; r <= maxRadius; r += 40) {
+                ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+            }
+
+            let phiRad = (161.6 - 90) * Math.PI / 180;
+            ctx.strokeStyle = isPulsing ? '#00e5ff' : '#f5d400';
+            ctx.lineWidth = isPulsing ? 4 : 2;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + Math.cos(phiRad) * maxRadius, cy + Math.sin(phiRad) * maxRadius);
+            
+            ctx.shadowBlur = 15; ctx.shadowColor = ctx.strokeStyle;
+            ctx.stroke(); ctx.shadowBlur = 0;
+            
+            ctx.fillStyle = ctx.strokeStyle;
+            ctx.font = 'bold 10px Courier New';
+            ctx.fillText("161.6° (100xΦ)", cx + Math.cos(phiRad) * (maxRadius * 0.8), cy + Math.sin(phiRad) * (maxRadius * 0.8) - 10);
+
+            stars.forEach(s => {
+                let rad = (s.hoek - 90) * Math.PI / 180;
+                let sx = cx + Math.cos(rad) * (maxRadius * s.dist);
+                let sy = cy + Math.sin(rad) * (maxRadius * s.dist);
+
+                ctx.strokeStyle = s.kleur; ctx.lineWidth = 1; ctx.globalAlpha = 0.4;
+                ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(sx, sy); ctx.stroke();
+
+                ctx.globalAlpha = 1.0; ctx.fillStyle = s.kleur;
+                ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.fillText(s.naam, sx + 8, sy + 4);
+            });
+
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
+
+            time += 1;
+            requestAnimationFrame(drawAstro);
+        }
+        drawAstro();
+
+        // ==========================================
+        // 4. GEOGRAFISCHE MAP (LEAFLET)
+        // ==========================================
+        var map = L.map('geoMap', { zoomControl: true }).setView([51.8, 2.5], 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+
+        const iconConfig = (color, size) => L.divIcon({ 
+            className: 'custom-div-icon', 
+            html: `<div style='background-color:${color}; width:${size}px; height:${size}px; border-radius:50%; border:2px solid #000; box-shadow: 0 0 10px ${color};'></div>`, 
+            iconSize: [size, size], iconAnchor: [size/2, size/2] 
+        });
+
+        const iconGnomon = iconConfig('#ffd700', 16);
+        const iconMega = iconConfig('#d500f9', 12);
+        const iconWater = iconConfig('#00e5ff', 10);
+        const iconAcoustic = iconConfig('#00e676', 10);
+
+        var locations = [
+            { naam: "Aardjesberg (Gooi)", lat: 52.2489, lon: 5.1775, desc: "Nulpunt (9,9) / Gnomon", icon: iconGnomon },
+            { naam: "Stonehenge", lat: 51.1789, lon: -1.8262, desc: "Megalithisch Anker (UK)", icon: iconMega },
+            { naam: "Avebury", lat: 51.4286, lon: -1.8542, desc: "Steencirkel (UK)", icon: iconMega },
+            { naam: "Ganuenta (Nehalennia)", lat: 51.6018, lon: 3.8453, desc: "Verdronken Tempel", icon: iconWater },
+            { naam: "Domburg (Vondst 1647)", lat: 51.5657, lon: 3.4980, desc: "Altaar Vondsten", icon: iconWater },
+            { naam: "Reimerswaal", lat: 51.5000, lon: 4.1666, desc: "Verdronken Stad", icon: iconWater },
+            { naam: "Oude Kerk (Tholen)", lat: 51.5330, lon: 4.1220, desc: "Akoestische Basiliek", icon: iconAcoustic },
+            { naam: "Langerak", lat: 51.9333, lon: 4.8667, desc: "Leylijn Knooppunt", icon: iconMega },
+            { naam: "Oude Kerk (Amsterdam)", lat: 52.3742, lon: 4.8980, desc: "Formant Resonator", icon: iconAcoustic },
+            { naam: "Lebuïnuskerk (Deventer)", lat: 52.2515, lon: 6.1550, desc: "IJssel Anker", icon: iconAcoustic }
+        ];
+
+        locations.forEach(loc => {
+            L.marker([loc.lat, loc.lon], {icon: loc.icon})
+             .addTo(map).bindPopup(`<strong style="color:#000;">${loc.naam}</strong><br><span style="color:#333;">${loc.desc}</span>`);
+        });
+
+        // Leylijn: Stonehenge -> Nehalennia -> Tholen -> Langerak -> Aardjesberg
+        var leyPath = L.polyline([
+            [51.1789, -1.8262], [51.4286, -1.8542], [51.6018, 3.8453], 
+            [51.5330, 4.1220], [51.9333, 4.8667], [52.2489, 5.1775]
+        ], { color: '#d500f9', weight: 3, opacity: 0.6, dashArray: '6, 6' }).addTo(map);
+
+        setTimeout(() => { map.invalidateSize(); }, 500);
+        window.addEventListener('resize', () => { map.invalidateSize(); });
+
+        setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString(); }, 1000);
+    </script>
+</body>
+</html>
