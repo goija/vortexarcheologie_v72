@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VORTEX v110.3 // DATA EXTRACTION NEXUS</title>
+    <title>VORTEX v110.14 // SEMANTIC DATAMAPPING</title>
     <link rel="icon" href="data:,">
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -13,37 +13,22 @@
         :root {
             --bg-dark: #020202; --panel-bg: #07070a; --border-color: #1a1a1a;
             --accent-cyan: #00e5ff; --accent-gold: #ffd700; --accent-blue: #2979ff;
-            --accent-green: #00e676; --accent-purple: #d500f9; --text-main: #d0d0d0;
-            --font-mono: 'Courier New', Courier, monospace;
+            --accent-green: #00e676; --accent-purple: #d500f9; --accent-pink: #ff0055;
+            --text-main: #d0d0d0; --font-mono: 'Courier New', Courier, monospace;
         }
 
         body, html {
             background-color: var(--bg-dark); color: var(--text-main);
             font-family: var(--font-mono); margin: 0; padding: 0;
-            height: 100vh; overflow: hidden; display: flex; flex-direction: column;
+            width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column;
         }
 
-        /* --- ROLE SELECTOR --- */
-        #role-selector {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95); z-index: 9999; display: flex;
-            flex-direction: column; justify-content: center; align-items: center; gap: 20px;
-        }
-        .role-btn {
-            font-size: 1.2em; padding: 20px 40px; border: 2px solid var(--accent-cyan);
-            background: rgba(0, 229, 255, 0.05); color: var(--accent-cyan); cursor: pointer;
-            text-transform: uppercase; font-family: var(--font-mono); font-weight: bold; transition: 0.3s;
-        }
-        .role-btn:hover { background: var(--accent-cyan); color: #000; box-shadow: 0 0 20px var(--accent-cyan); }
-        .role-btn.receiver { border-color: var(--accent-purple); color: var(--accent-purple); background: rgba(213, 0, 249, 0.05); }
-        .role-btn.receiver:hover { background: var(--accent-purple); color: #000; box-shadow: 0 0 20px var(--accent-purple); }
-
-        /* --- HEADER --- */
         header {
+            flex: 0 0 60px; height: 60px; 
             background: linear-gradient(180deg, #000 0%, #050505 100%);
             border-bottom: 2px solid var(--accent-cyan);
             padding: 0 25px; display: flex; justify-content: space-between; align-items: center;
-            z-index: 1000; height: 60px; box-sizing: border-box;
+            z-index: 1000; box-sizing: border-box;
         }
         .title { color: var(--accent-cyan); font-size: 1.2em; font-weight: bold; text-shadow: 0 0 10px var(--accent-cyan); }
         .version-tag { font-size: 0.5em; background: var(--accent-cyan); color: #000; padding: 2px 6px; border-radius: 3px; margin-left: 10px; }
@@ -51,56 +36,60 @@
         .status-item.active { color: var(--accent-green); text-shadow: 0 0 10px var(--accent-green); }
         #clock { font-size: 1.2em; font-weight: bold; color: var(--accent-cyan); }
 
-        /* --- LAYOUTS --- */
-        .view-container { display: none; flex-grow: 1; height: calc(100vh - 60px); }
+        .view-container { display: none; grid-template-columns: 400px 1fr; width: 100%; height: calc(100vh - 60px); overflow: hidden; }
         
-        #zender-view { display: none; grid-template-columns: 400px 1fr; }
-        .left-panel { background: var(--panel-bg); border-right: 1px solid var(--border-color); padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .right-panel { background: #020202; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .sidebar {
+            background: var(--panel-bg); border-right: 1px solid var(--border-color); 
+            padding: 15px; box-sizing: border-box; height: 100%; display: grid; 
+            grid-template-rows: max-content max-content minmax(0, 1fr) max-content; 
+            gap: 10px; overflow: hidden;
+        }
+        #ontvanger-view .sidebar { border-right-color: var(--accent-purple); }
 
-        #ontvanger-view { display: none; grid-template-columns: 400px 1fr; }
-        .rx-sidebar { background: var(--panel-bg); border-right: 1px solid var(--accent-purple); padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-        .rx-map-container { position: relative; background: #000; }
+        .scroll-box {
+            background: #000; border: 1px solid #222; padding: 10px;
+            overflow-y: auto; height: 100%; box-sizing: border-box; scrollbar-width: thin;
+        }
+
+        .ai-terminal { color: var(--accent-cyan); font-size: 0.8em; scrollbar-color: var(--accent-cyan) #000; }
+        .rx-log { border-color: var(--accent-purple); font-size: 0.75em; color: var(--text-main); scrollbar-color: var(--accent-purple) #000; line-height: 1.4; }
+
+        .rx-map-container { background: #000; height: 100%; width: 100%; overflow: hidden; }
         #geoMap { width: 100%; height: 100%; filter: invert(100%) hue-rotate(180deg) brightness(85%) contrast(120%) grayscale(20%); }
 
-        /* --- UI COMPONENTEN --- */
-        .data-block { background: #000; border: 1px solid #222; padding: 12px; position: relative; cursor: pointer; transition: 0.2s; }
+        .data-block { background: #000; border: 1px solid #222; padding: 12px; position: relative; cursor: pointer; transition: 0.2s; margin-bottom: 10px; }
         .data-block:hover { border-color: var(--accent-cyan); }
         .data-block::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
         .db-1::before { background: var(--accent-green); }
         .db-2::before { background: var(--accent-blue); }
-        .db-3::before { background: var(--accent-purple); }
+        .db-3::before { background: var(--accent-pink); }
         .db-4::before { background: var(--accent-gold); }
-
+        
         .data-title { font-size: 0.8em; text-transform: uppercase; color: #fff; margin-bottom: 5px; font-weight: bold; }
         .data-desc { font-size: 0.7em; color: #888; line-height: 1.4; margin-bottom: 5px; }
         .tool-tag { display: inline-block; font-size: 0.65em; background: rgba(255,255,255,0.1); padding: 3px 6px; margin: 2px; border-radius: 2px; color: #ccc; }
-
+        
         button { background: rgba(0, 229, 255, 0.05); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 10px; cursor: pointer; width: 100%; font-weight: bold; text-transform: uppercase; font-family: inherit; transition: 0.2s; }
         button:hover:not(:disabled) { background: rgba(0, 229, 255, 0.15); box-shadow: 0 0 10px var(--accent-cyan); }
-        button.btn-send { background: var(--accent-cyan); color: #000; margin-top: 10px; }
+        button.btn-send { background: var(--accent-cyan); color: #000; }
         button:disabled { opacity: 0.3; cursor: not-allowed; border-color: #555; color: #555; background: transparent; }
 
-        /* --- AI ZOEKER --- */
-        .ai-terminal { flex-grow: 1; background: #050505; border: 1px solid #222; padding: 15px; font-size: 0.8em; color: var(--accent-cyan); overflow-y: auto; line-height: 1.5; }
-        .ai-input-area { display: flex; gap: 10px; margin-top: 10px; }
+        .ai-input-area { display: flex; gap: 10px; }
         .ai-input-area input { flex-grow: 1; background: #000; border: 1px solid #333; color: var(--accent-gold); padding: 10px; font-family: var(--font-mono); outline: none; }
 
-        /* --- ONTVANGER HUD --- */
-        .rx-log { flex-grow: 1; background: #000; border: 1px solid var(--accent-purple); padding: 10px; font-size: 0.75em; color: var(--text-main); overflow-y: auto; line-height: 1.4; }
         .rx-incoming { border-top: 1px dashed #333; padding-top: 10px; margin-top: 10px; }
-        
-        .tool-btn-rx { 
-            display: inline-block; font-size: 0.85em; background: rgba(0,0,0,0.8); 
-            border: 1px solid; padding: 6px 12px; margin: 4px; border-radius: 3px; 
-            color: #fff; cursor: pointer; transition: 0.2s; font-family: var(--font-mono);
-        }
+        .tool-btn-rx { display: inline-block; font-size: 0.85em; background: rgba(0,0,0,0.8); border: 1px solid; padding: 6px 12px; margin: 4px; border-radius: 3px; color: #fff; cursor: pointer; transition: 0.2s; font-family: var(--font-mono); }
         .tool-btn-rx:hover { filter: brightness(1.5); box-shadow: 0 0 12px currentColor; transform: scale(1.05); }
 
-        /* Extractie Box UI */
-        .extract-box { background: #050505; border-left: 3px solid; padding: 8px 12px; margin-top: 8px; font-size: 0.9em; animation: flash 0.5s ease-out; }
+        .extract-box { background: #050505; border-left: 3px solid; padding: 8px 12px; margin-top: 8px; font-size: 0.9em; animation: flash 0.5s ease-out; word-wrap: break-word; }
         @keyframes flash { 0% { background: rgba(255,255,255,0.2); } 100% { background: #050505; } }
         
+        #role-selector { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; }
+        
+        /* Leaflet Map Tooltips Dark Mode Fix */
+        .leaflet-popup-content-wrapper { background: #0a0a0a !important; color: #d0d0d0 !important; border: 1px solid var(--accent-pink); border-radius: 2px; }
+        .leaflet-popup-tip { background: #0a0a0a !important; }
+        .leaflet-popup-content { font-family: var(--font-mono); font-size: 0.9em; }
     </style>
 </head>
 <body>
@@ -108,11 +97,11 @@
 <div id="role-selector">
     <div style="color:var(--accent-cyan); font-size:1.2em; margin-bottom:10px;">VORTEX C2 INITIALISATIE</div>
     <button class="role-btn" onclick="initRole('zender')">1. START ALS COMMAND ZENDER</button>
-    <button class="role-btn receiver" onclick="initRole('ontvanger')">2. START ALS GIS ONTVANGER</button>
+    <button class="role-btn" style="border-color:var(--accent-purple); color:var(--accent-purple);" onclick="initRole('ontvanger')">2. START ALS GIS ONTVANGER</button>
 </div>
 
 <header>
-    <div class="header-left"><div class="title">VORTEX <span class="version-tag">v110.3</span></div></div>
+    <div class="header-left"><div class="title">VORTEX <span class="version-tag">v110.14 (DATAMAP)</span></div></div>
     <div style="display:flex; gap:20px;">
         <div id="stat-p2p" class="status-item">● OMNI_BRIDGE_P2P</div>
         <div id="stat-ai" class="status-item">● AI_KOPPELING</div>
@@ -124,33 +113,41 @@
 </header>
 
 <main id="zender-view" class="view-container">
-    <div class="left-panel">
+    <div class="sidebar">
         <button id="btnNetwork" onclick="initNetwork()">1. KOPPEL OMNI-BRIDGE</button>
-        <div style="color:#888; font-size:0.8em; margin-top:10px; border-bottom:1px solid #222; padding-bottom:5px;">DATABASE // SOFTWARE NODES</div>
+        <div style="color:#888; font-size:0.8em; border-bottom:1px solid #222; padding-bottom:5px;">DATABASE // SOFTWARE NODES</div>
         
-        <div class="data-block db-1" onclick="selectNode('veld')">
-            <div class="data-title">1) Veldregistratie Node</div>
-            <div class="data-desc">Formulieren, offline kaarten en GNSS in het veld.</div>
-            <div><span class="tool-tag">QField</span><span class="tool-tag">ArcGIS Field Maps</span><span class="tool-tag">Survey123</span><span class="tool-tag">iDAI.field</span><span class="tool-tag">3D Scanning UIs</span></div>
-        </div>
+        <div class="scroll-box" style="border:none; padding:0; padding-right:5px;">
+            <div class="data-block db-1" onclick="selectNode('veld')">
+                <div class="data-title" style="color:var(--accent-green)">1) Veldregistratie Node</div>
+                <div class="data-desc">Formulieren, offline kaarten en GNSS in het veld.</div>
+                <div><span class="tool-tag">QField</span><span class="tool-tag">ArcGIS Field Maps</span><span class="tool-tag">Survey123</span><span class="tool-tag">iDAI.field</span></div>
+            </div>
 
-        <div class="data-block db-2" onclick="selectNode('gis')">
-            <div class="data-title">2) GIS & Webkaart Interfaces</div>
-            <div class="data-desc">Desktop en WebGIS viewers (WMS/KML).</div>
-            <div><span class="tool-tag">QGIS</span><span class="tool-tag">ArcGIS Pro</span><span class="tool-tag">OpenLayers</span><span class="tool-tag">Leaflet</span></div>
-        </div>
+            <div class="data-block db-2" onclick="selectNode('gis')">
+                <div class="data-title" style="color:var(--accent-blue)">2) GIS & Webkaart Interfaces</div>
+                <div class="data-desc">Desktop en WebGIS viewers (WMS/KML).</div>
+                <div><span class="tool-tag">QGIS</span><span class="tool-tag">ArcGIS Pro</span><span class="tool-tag">OpenLayers</span><span class="tool-tag">Leaflet</span></div>
+            </div>
 
-        <div class="data-block db-4" onclick="selectNode('db')">
-            <div class="data-title">4) Database- / Collectiebeheer</div>
-            <div class="data-desc">Onderzoeksdatabases en museum depots.</div>
-            <div><span class="tool-tag">Heurist</span><span class="tool-tag">CMS (Museum)</span></div>
+            <div class="data-block db-3" onclick="selectNode('kb')">
+                <div class="data-title" style="color: var(--accent-pink);">3) Knowledge Base Node</div>
+                <div class="data-desc">Cherrytree (.ctb) hiërarchie, ELS-logica en Gematria.</div>
+                <div><span class="tool-tag">Cherrytree (.ctb)</span><span class="tool-tag">SQLite</span><span class="tool-tag">Semantic Graph</span></div>
+            </div>
+
+            <div class="data-block db-4" onclick="selectNode('db')">
+                <div class="data-title" style="color:var(--accent-gold)">4) Collectiebeheer Node</div>
+                <div class="data-desc">Onderzoeksdatabases en museum depots.</div>
+                <div><span class="tool-tag">Heurist</span><span class="tool-tag">CMS (Museum)</span></div>
+            </div>
         </div>
         
-        <button id="btnSendNode" class="btn-send" onclick="sendNodeData()" disabled>KOPPEL & ZEND NAAR ONTVANGER</button>
+        <button id="btnSendNode" class="btn-send" onclick="sendNodeData()" disabled>ZEND NAAR ONTVANGER</button>
     </div>
-
-    <div class="right-panel">
-        <div class="ai-terminal" id="ai-terminal">> AI KERN ONLINE. Wacht op query of Node-selectie...<br></div>
+    
+    <div class="sidebar" style="background:#020202; border:none; grid-template-rows: minmax(0, 1fr) max-content;">
+        <div class="scroll-box ai-terminal" id="ai-terminal">> AI KERN ONLINE. Wacht op query of Node-selectie...<br></div>
         <div class="ai-input-area">
             <input type="text" id="ai-input" placeholder="Voer AI Query of parameter in..." onkeypress="if(event.key === 'Enter') runAIQuery()">
             <button onclick="runAIQuery()" style="width:120px;">ZOEK</button>
@@ -160,10 +157,11 @@
 </main>
 
 <main id="ontvanger-view" class="view-container">
-    <div class="rx-sidebar">
+    <div class="sidebar">
         <button id="btnNetworkRx" onclick="initNetwork()" style="border-color:var(--accent-purple); color:var(--accent-purple);">1. KOPPEL OMNI-BRIDGE</button>
-        <div style="color:var(--accent-purple); font-size:0.8em; margin-top:10px; font-weight:bold;">TACTISCH EXTRACTIE LOGBOEK</div>
-        <div class="rx-log" id="rx-log">
+        <div style="color:var(--accent-purple); font-size:0.8em; font-weight:bold;">TACTISCH EXTRACTIE LOGBOEK</div>
+        
+        <div class="scroll-box rx-log" id="rx-log">
             > ONTVANGER ONLINE. Wachten op datalink...<br>
         </div>
     </div>
@@ -174,29 +172,34 @@
 
 <script>
     const myID = "VTX-" + Math.random().toString(36).substr(2, 5).toUpperCase();
-    let ws, pc, dc, currentRole = null, selectedNodeId = null, lastAIQuery = "", map = null;
-    let extractionLayers = L.layerGroup(); // Groep om getekende data op te slaan
+    let ws, pc, dc, currentRole = null, selectedNodeId = null, map = null, audioCtx = null;
+    let extractionLayers = L.layerGroup(); 
+    let iceQueue = []; 
+    let isConnecting = false;
 
-    // Database integratie
     const softwareNodes = {
-        'veld': { 
-            title: "1) Veldregistratie Node", desc: "Geospatiale veld data-extractie.", 
-            tools: ["QField", "ArcGIS Field Maps", "Survey123", "iDAI.field", "3D Scanning UIs"], 
-            coords: [51.5833, 4.7667], color: "var(--accent-green)" 
-        },
-        'gis': { 
-            title: "2) GIS & Webkaart Interfaces", desc: "Ruimtelijke analyse en laagsynchronisatie.", 
-            tools: ["QGIS", "ArcGIS Pro", "OpenLayers", "Leaflet"], 
-            coords: [52.0705, 4.3007], color: "var(--accent-blue)" 
-        },
-        'db': { 
-            title: "4) Collectiebeheer Node", desc: "Tabulaire archief extracties.", 
-            tools: ["Heurist", "CMS (Museum)"], 
-            coords: [51.8425, 5.8395], color: "var(--accent-gold)" 
-        }
+        'veld': { title: "1) Veldregistratie Node", tools: ["QField", "ArcGIS Field Maps", "Survey123", "iDAI.field", "3D Scanning UIs"], coords: [51.5833, 4.7667], color: "var(--accent-green)" },
+        'gis': { title: "2) GIS & Webkaart Interfaces", tools: ["QGIS", "ArcGIS Pro", "OpenLayers", "Leaflet"], coords: [52.0705, 4.3007], color: "var(--accent-blue)" },
+        'kb': { title: "3) Knowledge Base Node", tools: ["Cherrytree (.ctb)", "SQLite", "Semantic Graph"], coords: [52.2530, 5.1760], color: "var(--accent-pink)" },
+        'db': { title: "4) Collectiebeheer Node", tools: ["Heurist", "CMS (Museum)"], coords: [51.8425, 5.8395], color: "var(--accent-gold)" }
     };
 
-    // --- INITIALISATIE ---
+    function triggerPututuResonance(freq) {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.8, audioCtx.currentTime + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 3.0);
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 3.5);
+    }
+
     function initRole(role) {
         currentRole = role;
         document.getElementById('role-selector').style.display = 'none';
@@ -219,65 +222,96 @@
         extractionLayers.addTo(map);
     }
 
-    // --- ZENDER LOGICA ---
+    function logToUI(msg, isError = false) {
+        const color = isError ? "red" : "inherit";
+        const html = `<div style="color:${color}; margin-top:5px;">${msg}</div>`;
+        const targetId = currentRole === 'zender' ? 'ai-terminal' : 'rx-log';
+        const el = document.getElementById(targetId);
+        if(el) { el.innerHTML += html; el.scrollTop = el.scrollHeight; }
+    }
+
     function selectNode(id) {
         selectedNodeId = id;
         const data = softwareNodes[id];
         document.querySelectorAll('.data-block').forEach(b => b.style.boxShadow = 'none');
-        event.currentTarget.style.boxShadow = 'inset 0 0 15px rgba(0, 229, 255, 0.2)';
+        event.currentTarget.style.boxShadow = `inset 0 0 15px ${data.color}`;
         if(dc && dc.readyState === 'open') document.getElementById('btnSendNode').disabled = false;
-        
-        const term = document.getElementById('ai-terminal');
-        term.innerHTML += `<br>> Target geselecteerd: <span style="color:${data.color}">${data.title}</span><br>`;
+        logToUI(`> Target geselecteerd: <span style="color:${data.color}">${data.title}</span>`);
     }
 
     function sendNodeData() {
         if(!selectedNodeId || !dc) return;
         dc.send(JSON.stringify({ type: 'NODE_SYNC', data: softwareNodes[selectedNodeId] }));
-        document.getElementById('ai-terminal').innerHTML += `> <span style="color:var(--accent-green)">[TX] Payload verzonden.</span><br>`;
+        logToUI(`> <span style="color:var(--accent-green)">[TX] Payload verzonden.</span>`);
     }
 
     function runAIQuery() {
-        lastAIQuery = document.getElementById('ai-input').value;
+        let lastAIQuery = document.getElementById('ai-input').value;
         document.getElementById('ai-input').value = "";
         if(!lastAIQuery) return;
-        
-        const term = document.getElementById('ai-terminal');
-        term.innerHTML += `<br><span style="color:#fff">> QUERY: "${lastAIQuery}"</span><br>`;
+        logToUI(`> QUERY: "${lastAIQuery}"`);
         setTimeout(() => {
-            term.innerHTML += `> Resultaat verwerkt.<br>`;
+            logToUI(`> Resultaat verwerkt.`);
             if(dc && dc.readyState === 'open') document.getElementById('btnSendAI').disabled = false;
         }, 500);
     }
 
     function sendAIResult() {
+        let lastAIQuery = document.getElementById('ai-input').value;
         dc.send(JSON.stringify({ type: 'AI_QUERY', text: lastAIQuery }));
         document.getElementById('btnSendAI').disabled = true;
     }
 
-    // --- ONTVANGER: DATA EXTRACTIE LOGICA ---
     function activateToolOnMap(toolName, lat, lon, color) {
         if (!map) return;
-        const rxl = document.getElementById('rx-log');
-        
-        // Base log entry
         let extractLog = `<div class="extract-box" style="border-color:${color};">
             <strong style="color:${color}">> EXTRACTIE: ${toolName.toUpperCase()}</strong><br>
             Locatie: [${lat.toFixed(4)}, ${lon.toFixed(4)}]<br>`;
 
-        // Specifieke extractie-gedragingen per tool
         if (toolName.includes("QField") || toolName.includes("QGIS")) {
-            // Polygoon genereren
             const offset = 0.05;
             const latlngs = [[lat-offset, lon-offset], [lat+offset, lon-offset], [lat+offset, lon+offset], [lat-offset, lon+offset]];
-            L.polygon(latlngs, {color: color, fillOpacity: 0.2, weight: 2}).addTo(extractionLayers)
-             .bindPopup(`<b>${toolName} GeoJSON Data</b><br>4 Vertices geëxtraheerd.`).openPopup();
-            
+            L.polygon(latlngs, {color: color, fillOpacity: 0.2, weight: 2}).addTo(extractionLayers).bindPopup(`<b>${toolName} GeoJSON Data</b><br>4 Vertices geëxtraheerd.`).openPopup();
             extractLog += `<span style="color:#888;">Data Type: GeoJSON Polygonen<br>Status: Succes (4 vertices)</span>`;
             map.flyTo([lat, lon], 11);
 
+        } else if (toolName.includes("Cherrytree") || toolName.includes("SQLite") || toolName.includes("Semantic Graph")) {
+            
+            // --- DIEPE CHERRYTREE DATAMAPPING ---
+            // 1. Plot de Root Database Node
+            L.circleMarker([lat, lon], {color: color, radius: 10, fillOpacity: 1}).addTo(extractionLayers)
+             .bindPopup(`<div style="font-size:1.1em; border-bottom:1px solid ${color}; margin-bottom:5px;"><b>[ VORTEX KNOWLEDGE BASE ]</b></div>DB: Cherrytree_Master.ctb<br>Query: SELECT * FROM nodes;`).openPopup();
+            
+            // 2. Definieer de specifieke theorie-clusters (uit de VORTEX documentatie)
+            const semanticNodes = [
+                { id: "ELS", angle: 0, dist: 0.16, naam: "ELS-Algoritme (Daniël 12)", data: "Formule: n + (n+d)...<br>Structuur: 5-Integer<br>Cluster: HaMashiach" },
+                { id: "AKO", angle: Math.PI/2, dist: 0.12, naam: "Archeoakoestiek", data: "Resonantie: 110.0 Hz<br>Shift: Prefrontale Cortex<br>Model: Mechanisch Kam-filter" },
+                { id: "GEO", angle: Math.PI, dist: 0.15, naam: "Gematria & Fysica", data: "Kesil (Orion) = 120<br>Gulden As: 161.6°<br>LFO Trigger: 100 μF Condensator" },
+                { id: "TOR", angle: (3*Math.PI)/2, dist: 0.13, naam: "VORTEX Architectuur", data: "Matrix: 52-bit Mersenne<br>Topologie: B(2,6) Torus<br>Rotatie: Quaternion Engine" }
+            ];
+
+            let logDetails = `<br><span style="color:${color};">[+] SQL INNER JOIN voltooid. 4 theorie-clusters geëxtraheerd.</span><br><br>`;
+
+            // 3. Teken de edges en sub-nodes
+            semanticNodes.forEach((sn) => {
+                let cLat = lat + (Math.sin(sn.angle) * sn.dist);
+                let cLon = lon + (Math.cos(sn.angle) * sn.dist);
+                
+                // Datamapping Lijn
+                L.polyline([[lat, lon], [cLat, cLon]], {color: color, weight: 2, dashArray: "4 6", opacity: 0.6}).addTo(extractionLayers);
+                
+                // Child Node met uitgebreide popup
+                L.circleMarker([cLat, cLon], {color: color, radius: 6, fillOpacity: 0.9}).addTo(extractionLayers)
+                 .bindPopup(`<div style="border-left:3px solid ${color}; padding-left:8px;"><b>Node [${sn.id}]</b><br><span style="color:${color}">${sn.naam}</span><br>---<br>${sn.data}</div>`);
+                 
+                // Bouw het logboek op
+                logDetails += `<span style="color:#888;">├─ MAPPING: [${sn.id}] -> ${sn.naam}</span><br>`;
+            });
+
+            extractLog += `${logDetails}<br><span style="color:#aaa;">Actie: Semantic Knowledge Graph (CTB) gerenderd in fysieke 2D ruimte.</span>`;
+            map.flyTo([lat, lon], 9);
+
         } else if (toolName.includes("ArcGIS") || toolName.includes("Leaflet")) {
-            // Puntenwolk genereren (Feature Layer)
             for(let i=0; i<5; i++) {
                 let rLat = lat + (Math.random() * 0.1 - 0.05);
                 let rLon = lon + (Math.random() * 0.1 - 0.05);
@@ -286,28 +320,18 @@
             extractLog += `<span style="color:#888;">Data Type: Feature Layer Sync<br>Status: 5 Artefact-nodes gelokaliseerd.</span>`;
             map.flyTo([lat, lon], 12);
 
-        } else if (toolName.includes("Survey123") || toolName.includes("iDAI") || toolName.includes("Heurist")) {
-            // Tabulaire / Formulier Data
-            extractLog += `<span style="color:#888;">Data Type: Tabulaire Records (CSV/DB)<br>
-            Records: 142 gevonden<br>
-            Meta: [Context_ID, Vondst_Type, Diepte]</span>`;
-            
-        } else if (toolName.includes("3D")) {
-            // Radargrid / Point cloud
-            L.circle([lat, lon], {color: color, radius: 4000, fillOpacity: 0.1, dashArray: "4 10"}).addTo(extractionLayers);
-            L.circle([lat, lon], {color: color, radius: 2000, fillOpacity: 0.3}).addTo(extractionLayers);
-            extractLog += `<span style="color:#888;">Data Type: LiDar / Point Cloud Scan<br>Densiteit: Hoog</span>`;
-            map.flyTo([lat, lon], 12);
-
         } else {
-            // Fallback: simpele radarcirkel
             L.circle([lat, lon], {color: color, radius: 5000, fillOpacity: 0.2}).addTo(extractionLayers);
-            extractLog += `<span style="color:#888;">Standaard systeem request verzonden.</span>`;
+            extractLog += `<span style="color:#888;">Data Type: Tabulaire Records (CSV/DB)<br>Records: 142 gevonden<br>Meta: [Context_ID, Vondst_Type, Diepte]</span>`;
         }
 
         extractLog += `</div>`;
-        rxl.innerHTML += extractLog;
-        rxl.scrollTop = rxl.scrollHeight;
+        logToUI(extractLog);
+
+        // VORTEX Audio Feedback Trigger
+        if (dc && dc.readyState === 'open') {
+            dc.send(JSON.stringify({ type: 'AUDIO_EXCITATION', tool: toolName, freq: 110 }));
+        }
     }
 
     function processIncomingData(rawData) {
@@ -315,74 +339,179 @@
             const msg = JSON.parse(rawData);
             if (msg.type === 'NODE_SYNC') {
                 const node = msg.data;
-                extractionLayers.clearLayers(); // Maak vorige extracties schoon
+                extractionLayers.clearLayers(); 
                 
                 let toolsHTML = "";
                 node.tools.forEach(tool => { 
                     toolsHTML += `<button class="tool-btn-rx" style="border-color:${node.color}; color:${node.color};" onclick="activateToolOnMap('${tool}', ${node.coords[0]}, ${node.coords[1]}, '${node.color}')">${tool}</button>`; 
                 });
 
-                const rxl = document.getElementById('rx-log');
-                rxl.innerHTML += `
+                logToUI(`
                     <div class="rx-incoming">
                         <div style="color:${node.color}; font-weight:bold; font-size: 1.1em;">${node.title}</div>
                         <div style="margin: 5px 0;">${toolsHTML}</div>
-                    </div>`;
-                rxl.scrollTop = rxl.scrollHeight;
+                    </div>`);
                 
                 if(map) {
                     const icon = L.divIcon({ html: `<div style="background:${node.color}; width:20px; height:20px; border-radius:50%; box-shadow:0 0 15px ${node.color}; border: 2px solid #fff;"></div>`, className: ''});
                     L.marker(node.coords, {icon}).addTo(extractionLayers).bindPopup(`<b style="color:#000;">${node.title}</b>`).openPopup();
                     map.flyTo(node.coords, 9, {duration: 2});
                 }
-            } else if (msg.type === 'AI_QUERY') {
-                const rxl = document.getElementById('rx-log');
-                rxl.innerHTML += `<div class="extract-box" style="border-color:var(--accent-gold);"><span style="color:var(--accent-gold);">AI COMMANDO:</span><br>"${msg.text}"</div>`;
-                rxl.scrollTop = rxl.scrollHeight;
             }
         } catch(e) {}
     }
 
-    // --- WEBRTC P2P BRUG ---
+    async function processIceQueue() {
+        while (iceQueue.length > 0) {
+            const candidate = iceQueue.shift();
+            try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch(e) {} 
+        }
+    }
+
     function initNetwork() {
-        ws = new WebSocket("ws://127.0.0.1:1880/vortex");
-        ws.onopen = () => { setupWebRTC(); };
+        if (isConnecting) return; 
+        isConnecting = true;
+
+        const btnId = currentRole === 'zender' ? 'btnNetwork' : 'btnNetworkRx';
+        document.getElementById(btnId).disabled = true;
+        iceQueue = []; 
+
+        if (ws) { ws.onclose = null; ws.close(); }
+        if (pc) { pc.close(); }
+
+        try {
+            ws = new WebSocket("ws://127.0.0.1:1880/vortex");
+        } catch(e) {
+            logToUI("> [FOUT] Kan WebSocket niet initialiseren.", true);
+            isConnecting = false;
+            document.getElementById(btnId).disabled = false;
+            return;
+        }
+
+        ws.onopen = () => { 
+            logToUI(`> <span style="color:var(--accent-green)">WebSocket Verbonden (Poort 1880).</span> INIT WebRTC...`);
+            setupWebRTC(); 
+            
+            if (currentRole === 'ontvanger') {
+                ws.send(JSON.stringify({payload: {type: 'peer_joined', senderID: myID}}));
+            } else if (currentRole === 'zender') {
+                ws.send(JSON.stringify({payload: {type: 'request_handshake', senderID: myID}}));
+            }
+        };
+
+        ws.onerror = () => { 
+            logToUI("> [FOUT] Geen verbinding met Node-RED. Controleer je backend!", true); 
+            isConnecting = false;
+            document.getElementById(btnId).disabled = false;
+        };
+
         ws.onmessage = async (e) => {
-            const d = JSON.parse(e.data).payload || JSON.parse(e.data);
-            if (d.senderID === myID) return;
+            let d;
             try {
-                if (d.type === 'offer') {
+                const parsed = JSON.parse(e.data);
+                d = parsed.payload ? parsed.payload : parsed;
+            } catch(err) { return; } 
+            
+            if (d.senderID === myID || !pc) return; 
+            
+            try {
+                if (d.type === 'request_handshake' && currentRole === 'ontvanger') {
+                    logToUI("> Handshake verzoek van Zender ontvangen. Bevestig aanwezigheid...");
+                    ws.send(JSON.stringify({payload: {type: 'peer_joined', senderID: myID}}));
+                }
+                else if (d.type === 'peer_joined' && currentRole === 'zender') {
+                    if (pc.signalingState !== 'stable') return; 
+                    logToUI("> Ontvanger gedetecteerd. Verzend WebRTC offer...");
+                    const o = await pc.createOffer();
+                    await pc.setLocalDescription(o);
+                    ws.send(JSON.stringify({payload:{type:'offer', offer:o, senderID:myID}}));
+                }
+                else if (d.type === 'offer' && currentRole === 'ontvanger') {
+                    if (pc.signalingState !== 'stable') return; 
+                    logToUI("> Offer ontvangen. Verzend Answer...");
                     await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
-                    const a = await pc.createAnswer(); await pc.setLocalDescription(a);
+                    const a = await pc.createAnswer(); 
+                    await pc.setLocalDescription(a);
                     ws.send(JSON.stringify({payload: {type:'answer', answer:a, senderID:myID}}));
-                } else if (d.type === 'answer' && pc.signalingState !== 'stable') {
-                    await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
-                } else if (d.candidate) { await pc.addIceCandidate(new RTCIceCandidate(d.candidate)); }
-            } catch(err) {}
+                    processIceQueue();
+                } 
+                else if (d.type === 'answer' && currentRole === 'zender') {
+                    if (pc.signalingState === 'have-local-offer') { 
+                        logToUI("> Answer ontvangen. Tunnel wordt opgebouwd...");
+                        await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
+                        processIceQueue();
+                    }
+                } 
+                else if (d.candidate) { 
+                    if (pc.remoteDescription && pc.remoteDescription.type) {
+                        pc.addIceCandidate(new RTCIceCandidate(d.candidate)).catch(e => {}); 
+                    } else {
+                        iceQueue.push(d.candidate); 
+                    }
+                }
+            } catch(err) {
+                if (!err.message.includes("ufrag") && !err.message.includes("mid of m-sections")) {
+                    logToUI(`> [WEBRTC FOUT]: ${err.message}`, true);
+                }
+            }
         };
     }
 
     function setupWebRTC() {
-        pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+        pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]});
         pc.onicecandidate = e => { if(e.candidate) ws.send(JSON.stringify({payload:{candidate:e.candidate, senderID:myID}})); };
+        
         pc.onconnectionstatechange = () => {
-            const s = pc.connectionState === 'connected';
-            document.getElementById('stat-p2p').classList.toggle('active', s);
-            
-            ['btnNetwork', 'btnNetworkRx'].forEach(id => {
-                const b = document.getElementById(id);
-                if(b) { b.disabled = s; b.innerText = s ? "BRUG ACTIEF" : "KOPPEL OMNI-BRIDGE"; }
-            });
-            if(s && currentRole === 'zender' && selectedNodeId) document.getElementById('btnSendNode').disabled = false;
+            if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+                logToUI("> [FOUT] P2P Verbinding verbroken of afgewezen.", true);
+                isConnecting = false;
+                ['btnNetwork', 'btnNetworkRx'].forEach(id => { const b = document.getElementById(id); if(b) { b.disabled = false; b.innerText = "KOPPEL OMNI-BRIDGE"; }});
+                document.getElementById('stat-p2p').classList.remove('active');
+            }
         };
-        pc.ondatachannel = e => { dc = e.channel; setupDC(); };
+
         if(currentRole === 'zender') {
-            dc = pc.createDataChannel("vortex_sync"); setupDC();
-            pc.createOffer().then(o => { pc.setLocalDescription(o); ws.send(JSON.stringify({payload:{type:'offer', offer:o, senderID:myID}})); });
+            dc = pc.createDataChannel("vortex_sync"); 
+            attachDCEvents();
+            logToUI("> Wachten op Ontvanger handshake...");
+        } else {
+            pc.ondatachannel = e => { dc = e.channel; attachDCEvents(); };
         }
     }
 
-    function setupDC() { dc.onmessage = e => { if(currentRole === 'ontvanger') processIncomingData(e.data); }; }
+    function attachDCEvents() {
+        const handleOpen = () => {
+            logToUI(`> <span style="color:var(--accent-gold)">[SUCCES] DATAKANAAL OPEN (Latentie <40ms)!</span>`);
+            document.getElementById('stat-p2p').classList.add('active');
+            
+            ['btnNetwork', 'btnNetworkRx'].forEach(id => {
+                const b = document.getElementById(id);
+                if(b) { b.disabled = true; b.innerText = "BRUG ACTIEF"; }
+            });
+            
+            if(currentRole === 'zender' && selectedNodeId) document.getElementById('btnSendNode').disabled = false;
+        };
+
+        if (dc.readyState === 'open') {
+            handleOpen();
+        } else {
+            dc.onopen = handleOpen;
+        }
+        
+        dc.onmessage = e => { 
+            try {
+                const msg = JSON.parse(e.data);
+                if (currentRole === 'ontvanger' && msg.type !== 'AUDIO_EXCITATION') { 
+                    processIncomingData(e.data); 
+                } 
+                else if (currentRole === 'zender' && msg.type === 'AUDIO_EXCITATION') {
+                    logToUI(`> <span style="color:var(--accent-gold)">[RX P2P] EXCITATIE ONTVANGEN via ${msg.tool}.</span><br>> 100 μF LFO getriggerd op ${msg.freq}Hz.`);
+                    triggerPututuResonance(msg.freq);
+                }
+            } catch(err) {}
+        }; 
+    }
+
     setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString(); }, 1000);
 </script>
 </body>
