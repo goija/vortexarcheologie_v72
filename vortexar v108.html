@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VORTEX v110.14 // SEMANTIC DATAMAPPING</title>
+    <title>VORTEX v112.9 // INTELLIGENT CLI NEXUS</title>
     <link rel="icon" href="data:,">
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -11,155 +11,216 @@
 
     <style>
         :root {
-            --bg-dark: #020202; --panel-bg: #07070a; --border-color: #1a1a1a;
-            --accent-cyan: #00e5ff; --accent-gold: #ffd700; --accent-blue: #2979ff;
-            --accent-green: #00e676; --accent-purple: #d500f9; --accent-pink: #ff0055;
-            --text-main: #d0d0d0; --font-mono: 'Courier New', Courier, monospace;
+            /* --- FABER-CASTELL TACTICAL PALETTE --- */
+            --fc-100-black: #050508;          
+            --fc-155-heliocyan: #00a9e0;      
+            --fc-108-yellow: #ffb200;         
+            --fc-134-crimson: #b31e34;        
+            --fc-219-deepred: #d92534;        
+            --fc-161-green: #00b57e;          
+            
+            --panel-bg: #0a0a0d; 
+            --border-color: #222;
+            --text-main: #e0e0e0; 
+            --font-mono: 'Courier New', Courier, monospace;
         }
 
         body, html {
-            background-color: var(--bg-dark); color: var(--text-main);
+            background-color: var(--fc-100-black); color: var(--text-main);
             font-family: var(--font-mono); margin: 0; padding: 0;
             width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column;
         }
 
+        /* --- HEADER --- */
         header {
             flex: 0 0 60px; height: 60px; 
-            background: linear-gradient(180deg, #000 0%, #050505 100%);
-            border-bottom: 2px solid var(--accent-cyan);
+            background: linear-gradient(180deg, #050508 0%, #0a0a0d 100%);
+            border-bottom: 1px solid var(--border-color);
             padding: 0 25px; display: flex; justify-content: space-between; align-items: center;
             z-index: 1000; box-sizing: border-box;
         }
-        .title { color: var(--accent-cyan); font-size: 1.2em; font-weight: bold; text-shadow: 0 0 10px var(--accent-cyan); }
-        .version-tag { font-size: 0.5em; background: var(--accent-cyan); color: #000; padding: 2px 6px; border-radius: 3px; margin-left: 10px; }
-        .status-item { display: flex; align-items: center; gap: 8px; color: #444; font-size: 0.7em; letter-spacing: 2px; }
-        .status-item.active { color: var(--accent-green); text-shadow: 0 0 10px var(--accent-green); }
-        #clock { font-size: 1.2em; font-weight: bold; color: var(--accent-cyan); }
+        .title { color: #fff; font-size: 1.4em; font-weight: bold; letter-spacing: 2px; }
+        .version-tag { font-size: 0.45em; background: #333; color: #fff; padding: 2px 6px; border-radius: 2px; margin-left: 10px; vertical-align: middle; }
+        
+        .status-container { display:flex; gap:30px; }
+        .status-item { display: flex; align-items: center; gap: 8px; color: #666; font-size: 0.7em; letter-spacing: 2px; transition: 0.3s; }
+        .status-item.active { color: var(--fc-161-green); text-shadow: 0 0 10px var(--fc-161-green); }
 
-        .view-container { display: none; grid-template-columns: 400px 1fr; width: 100%; height: calc(100vh - 60px); overflow: hidden; }
+        /* --- LAYOUT FIX (KOGELVRIJE SCROLL) --- */
+        .view-container { display: none; grid-template-columns: 450px 1fr; width: 100%; height: calc(100vh - 60px); overflow: hidden; }
         
         .sidebar {
             background: var(--panel-bg); border-right: 1px solid var(--border-color); 
-            padding: 15px; box-sizing: border-box; height: 100%; display: grid; 
-            grid-template-rows: max-content max-content minmax(0, 1fr) max-content; 
-            gap: 10px; overflow: hidden;
+            padding: 15px; box-sizing: border-box; height: 100%; 
+            display: flex; flex-direction: column; gap: 10px;
+            overflow: hidden;
         }
-        #ontvanger-view .sidebar { border-right-color: var(--accent-purple); }
 
         .scroll-box {
-            background: #000; border: 1px solid #222; padding: 10px;
-            overflow-y: auto; height: 100%; box-sizing: border-box; scrollbar-width: thin;
+            flex-grow: 1; 
+            min-height: 0; 
+            overflow-y: auto; 
+            padding-right: 10px;
+            scrollbar-width: thin;
         }
+        .scroll-box::-webkit-scrollbar { width: 6px; }
+        .scroll-box::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
 
-        .ai-terminal { color: var(--accent-cyan); font-size: 0.8em; scrollbar-color: var(--accent-cyan) #000; }
-        .rx-log { border-color: var(--accent-purple); font-size: 0.75em; color: var(--text-main); scrollbar-color: var(--accent-purple) #000; line-height: 1.4; }
+        .fixed-element { flex-shrink: 0; }
 
+        /* --- TERMINALS & LOGBOEKEN --- */
+        .ai-terminal { background: #000; border: 1px solid #333; padding: 10px; color: var(--text-main); font-size: 0.8em; line-height: 1.4;}
+        .rx-log { background: #000; border: 1px solid #333; padding: 10px; font-size: 0.75em; color: var(--text-main); line-height: 1.4; }
+
+        /* --- KAART --- */
         .rx-map-container { background: #000; height: 100%; width: 100%; overflow: hidden; }
         #geoMap { width: 100%; height: 100%; filter: invert(100%) hue-rotate(180deg) brightness(85%) contrast(120%) grayscale(20%); }
 
-        .data-block { background: #000; border: 1px solid #222; padding: 12px; position: relative; cursor: pointer; transition: 0.2s; margin-bottom: 10px; }
-        .data-block:hover { border-color: var(--accent-cyan); }
-        .data-block::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
-        .db-1::before { background: var(--accent-green); }
-        .db-2::before { background: var(--accent-blue); }
-        .db-3::before { background: var(--accent-pink); }
-        .db-4::before { background: var(--accent-gold); }
+        /* --- CLEAN DATA BLOCKS --- */
+        .data-block { 
+            background: #0d0d12; border: 1px solid #222; border-radius: 4px;
+            padding: 12px; position: relative; cursor: pointer; transition: all 0.2s ease; 
+            margin-bottom: 12px; 
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         
-        .data-title { font-size: 0.8em; text-transform: uppercase; color: #fff; margin-bottom: 5px; font-weight: bold; }
-        .data-desc { font-size: 0.7em; color: #888; line-height: 1.4; margin-bottom: 5px; }
-        .tool-tag { display: inline-block; font-size: 0.65em; background: rgba(255,255,255,0.1); padding: 3px 6px; margin: 2px; border-radius: 2px; color: #ccc; }
+        .data-block:hover { background: #15151c; border-color: #444; }
+        .data-block.selected { background: #111; border-color: #666; box-shadow: 0 0 10px rgba(255,255,255,0.05); }
+
+        .data-title { color: #fff; font-size: 0.9em; text-transform: uppercase; font-weight: bold; margin-bottom: 6px; letter-spacing: 1px; }
+        .data-desc { color: #aaa; font-size: 0.75em; line-height: 1.4; margin-bottom: 10px; }
         
-        button { background: rgba(0, 229, 255, 0.05); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 10px; cursor: pointer; width: 100%; font-weight: bold; text-transform: uppercase; font-family: inherit; transition: 0.2s; }
-        button:hover:not(:disabled) { background: rgba(0, 229, 255, 0.15); box-shadow: 0 0 10px var(--accent-cyan); }
-        button.btn-send { background: var(--accent-cyan); color: #000; }
-        button:disabled { opacity: 0.3; cursor: not-allowed; border-color: #555; color: #555; background: transparent; }
+        /* --- FABER-CASTELL LABELS --- */
+        .tool-tags-container { display: flex; flex-wrap: wrap; gap: 6px; }
+        .tool-tag { 
+            display: inline-block; font-size: 0.7em; padding: 3px 8px; border-radius: 3px; 
+            font-weight: bold; color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5); letter-spacing: 0.5px;
+        }
+        
+        .tag-green { background: var(--fc-161-green); border: 1px solid #00966c; }
+        .tag-blue { background: var(--fc-155-heliocyan); border: 1px solid #0087b3; }
+        .tag-red { background: var(--fc-134-crimson); border: 1px solid #8a1728; }
+        .tag-yellow { background: var(--fc-108-yellow); border: 1px solid #cc8e00; color: #000; text-shadow: none; }
+
+        /* --- UI KNOPPEN --- */
+        button { 
+            background: #111; border: 1px solid #444; color: #eee; padding: 12px; 
+            cursor: pointer; width: 100%; font-weight: bold; text-transform: uppercase; 
+            font-family: inherit; transition: 0.2s; letter-spacing: 1px; border-radius: 2px; 
+        }
+        button:hover:not(:disabled) { background: #222; border-color: #666; }
+        button.btn-send { background: #eee; color: #000; border-color: #fff; }
+        button.btn-send:hover:not(:disabled) { background: #fff; }
+        button:disabled { opacity: 0.3; cursor: not-allowed; border-color: #333; background: transparent; }
 
         .ai-input-area { display: flex; gap: 10px; }
-        .ai-input-area input { flex-grow: 1; background: #000; border: 1px solid #333; color: var(--accent-gold); padding: 10px; font-family: var(--font-mono); outline: none; }
-
+        .ai-input-area input { flex-grow: 1; background: #000; border: 1px solid #444; color: #fff; padding: 10px; font-family: var(--font-mono); outline: none; border-radius: 2px; }
+        .ai-input-area input:focus { border-color: var(--fc-155-heliocyan); }
+        
         .rx-incoming { border-top: 1px dashed #333; padding-top: 10px; margin-top: 10px; }
-        .tool-btn-rx { display: inline-block; font-size: 0.85em; background: rgba(0,0,0,0.8); border: 1px solid; padding: 6px 12px; margin: 4px; border-radius: 3px; color: #fff; cursor: pointer; transition: 0.2s; font-family: var(--font-mono); }
-        .tool-btn-rx:hover { filter: brightness(1.5); box-shadow: 0 0 12px currentColor; transform: scale(1.05); }
-
-        .extract-box { background: #050505; border-left: 3px solid; padding: 8px 12px; margin-top: 8px; font-size: 0.9em; animation: flash 0.5s ease-out; word-wrap: break-word; }
-        @keyframes flash { 0% { background: rgba(255,255,255,0.2); } 100% { background: #050505; } }
+        .tool-btn-rx { display: inline-block; font-size: 0.85em; padding: 6px 12px; margin: 4px; border-radius: 2px; cursor: pointer; font-family: var(--font-mono); font-weight: bold; color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
         
-        #role-selector { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; }
+        .extract-box { background: #050505; border-left: 3px solid #666; padding: 10px 15px; margin-top: 10px; font-size: 0.85em; }
         
-        /* Leaflet Map Tooltips Dark Mode Fix */
-        .leaflet-popup-content-wrapper { background: #0a0a0a !important; color: #d0d0d0 !important; border: 1px solid var(--accent-pink); border-radius: 2px; }
-        .leaflet-popup-tip { background: #0a0a0a !important; }
-        .leaflet-popup-content { font-family: var(--font-mono); font-size: 0.9em; }
+        #role-selector { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,5,8,0.98); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; }
+        
+        /* Leaflet Popup Override */
+        .leaflet-popup-content-wrapper { background: #111 !important; color: #d0d0d0 !important; border: 1px solid #444; border-radius: 2px; }
+        .leaflet-popup-tip { background: #111 !important; border-top: 1px solid #444; border-left: 1px solid #444; }
+        .leaflet-popup-content { font-family: var(--font-mono); color: #eee !important; font-size: 1.05em; line-height: 1.4; margin: 12px; }
+        .leaflet-popup-content b { color: #fff !important; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div id="role-selector">
-    <div style="color:var(--accent-cyan); font-size:1.2em; margin-bottom:10px;">VORTEX C2 INITIALISATIE</div>
-    <button class="role-btn" onclick="initRole('zender')">1. START ALS COMMAND ZENDER</button>
-    <button class="role-btn" style="border-color:var(--accent-purple); color:var(--accent-purple);" onclick="initRole('ontvanger')">2. START ALS GIS ONTVANGER</button>
+    <div style="color:#fff; font-size:2em; margin-bottom:20px; font-weight: bold; letter-spacing: 5px;">VORTEX C2 NEXUS</div>
+    <button class="role-btn" style="width: 400px; padding: 25px;" onclick="initRole('zender')">COMMAND ZENDER (MASTER)</button>
+    <button class="role-btn receiver" style="width: 400px; padding: 25px;" onclick="initRole('ontvanger')">GIS ONTVANGER (HUD)</button>
 </div>
 
 <header>
-    <div class="header-left"><div class="title">VORTEX <span class="version-tag">v110.14 (DATAMAP)</span></div></div>
-    <div style="display:flex; gap:20px;">
-        <div id="stat-p2p" class="status-item">● OMNI_BRIDGE_P2P</div>
-        <div id="stat-ai" class="status-item">● AI_KOPPELING</div>
+    <div class="header-left">
+        <div class="title">VORTEX C2 NEXUS <span class="version-tag">v112.9 (CLI INT)</span></div>
     </div>
-    <div class="header-right">
-        <span id="clock">00:00:00</span><br>
-        <span id="role-badge" style="font-size:0.7em; color:var(--accent-gold);">WACHTEN OP ROL...</span>
+    
+    <div class="header-right" style="display:flex; align-items:center; gap: 20px;">
+        <div class="status-container">
+            <div id="stat-p2p" class="status-item">● OMNI_BRIDGE_P2P</div>
+            <div id="stat-ai" class="status-item">● AI_KOPPELING</div>
+        </div>
+        <span id="role-badge" style="font-size:0.7em; color:#aaa; border: 1px solid #444; padding: 4px;">WACHTEN OP ROL</span>
     </div>
 </header>
 
 <main id="zender-view" class="view-container">
     <div class="sidebar">
-        <button id="btnNetwork" onclick="initNetwork()">1. KOPPEL OMNI-BRIDGE</button>
-        <div style="color:#888; font-size:0.8em; border-bottom:1px solid #222; padding-bottom:5px;">DATABASE // SOFTWARE NODES</div>
+        <button id="btnNetwork" class="fixed-element" onclick="initNetwork()">1. KOPPEL OMNI-BRIDGE</button>
+        <div class="fixed-element" style="color:#888; font-size:0.8em; border-bottom:1px solid #222; padding-bottom:5px;">DATABASE // SOFTWARE NODES</div>
         
-        <div class="scroll-box" style="border:none; padding:0; padding-right:5px;">
-            <div class="data-block db-1" onclick="selectNode('veld')">
-                <div class="data-title" style="color:var(--accent-green)">1) Veldregistratie Node</div>
-                <div class="data-desc">Formulieren, offline kaarten en GNSS in het veld.</div>
-                <div><span class="tool-tag">QField</span><span class="tool-tag">ArcGIS Field Maps</span><span class="tool-tag">Survey123</span><span class="tool-tag">iDAI.field</span></div>
+        <div class="scroll-box" id="node-container">
+            <div class="data-block" id="node-veld" onclick="selectNode('veld')">
+                <div class="data-title">FIELD_OPS // NODE_SYNC</div>
+                <div class="data-desc">Veldregistratie VORTEX Node. Formulieren, offline kaarten en tactische GNSS integratie.</div>
+                <div class="tool-tags-container">
+                    <span class="tool-tag tag-green">QField</span>
+                    <span class="tool-tag tag-green">ArcGIS Maps</span>
+                    <span class="tool-tag tag-green">Survey123</span>
+                </div>
             </div>
 
-            <div class="data-block db-2" onclick="selectNode('gis')">
-                <div class="data-title" style="color:var(--accent-blue)">2) GIS & Webkaart Interfaces</div>
-                <div class="data-desc">Desktop en WebGIS viewers (WMS/KML).</div>
-                <div><span class="tool-tag">QGIS</span><span class="tool-tag">ArcGIS Pro</span><span class="tool-tag">OpenLayers</span><span class="tool-tag">Leaflet</span></div>
+            <div class="data-block" id="node-gis" onclick="selectNode('gis')">
+                <div class="data-title">TACTICAL // GIS_ANALYSIS</div>
+                <div class="data-desc">Ruimtelijke analyse en laagsynchronisatie via Webmap Interfaces.</div>
+                <div class="tool-tags-container">
+                    <span class="tool-tag tag-blue">QGIS</span>
+                    <span class="tool-tag tag-blue">ArcGIS Pro</span>
+                    <span class="tool-tag tag-blue">Leaflet</span>
+                </div>
             </div>
 
-            <div class="data-block db-3" onclick="selectNode('kb')">
-                <div class="data-title" style="color: var(--accent-pink);">3) Knowledge Base Node</div>
-                <div class="data-desc">Cherrytree (.ctb) hiërarchie, ELS-logica en Gematria.</div>
-                <div><span class="tool-tag">Cherrytree (.ctb)</span><span class="tool-tag">SQLite</span><span class="tool-tag">Semantic Graph</span></div>
+            <div class="data-block" id="node-kb" onclick="selectNode('kb')">
+                <div class="data-title">VORTEX_BRAIN // KNOWLEDGE BASE</div>
+                <div class="data-desc">Hiërarchische logica, ELS-matrices, Gematria en Archeoakoestiek.</div>
+                <div class="tool-tags-container">
+                    <span class="tool-tag tag-red">Cherrytree (.ctb)</span>
+                    <span class="tool-tag tag-red">SQLite</span>
+                    <span class="tool-tag tag-red">Semantic Graph</span>
+                </div>
             </div>
 
-            <div class="data-block db-4" onclick="selectNode('db')">
-                <div class="data-title" style="color:var(--accent-gold)">4) Collectiebeheer Node</div>
+            <div class="data-block" id="node-db" onclick="selectNode('db')">
+                <div class="data-title">DATABASE // COLLECTION_ADMIN</div>
                 <div class="data-desc">Onderzoeksdatabases en museum depots.</div>
-                <div><span class="tool-tag">Heurist</span><span class="tool-tag">CMS (Museum)</span></div>
+                <div class="tool-tags-container">
+                    <span class="tool-tag tag-yellow">Heurist</span>
+                    <span class="tool-tag tag-yellow">CMS (Museum)</span>
+                </div>
             </div>
         </div>
         
-        <button id="btnSendNode" class="btn-send" onclick="sendNodeData()" disabled>ZEND NAAR ONTVANGER</button>
+        <button id="btnSendNode" class="btn-send fixed-element" onclick="sendNodeData()" disabled>ZEND DATA NAAR ONTVANGER</button>
     </div>
     
-    <div class="sidebar" style="background:#020202; border:none; grid-template-rows: minmax(0, 1fr) max-content;">
-        <div class="scroll-box ai-terminal" id="ai-terminal">> AI KERN ONLINE. Wacht op query of Node-selectie...<br></div>
-        <div class="ai-input-area">
-            <input type="text" id="ai-input" placeholder="Voer AI Query of parameter in..." onkeypress="if(event.key === 'Enter') runAIQuery()">
-            <button onclick="runAIQuery()" style="width:120px;">ZOEK</button>
-            <button id="btnSendAI" onclick="sendAIResult()" style="width:150px; border-color:var(--accent-gold); color:var(--accent-gold);" disabled>ZEND AI DATA</button>
+    <div class="sidebar" style="background:#020202; border:none;">
+        <div class="scroll-box ai-terminal" id="ai-terminal">
+            <span style="color:var(--fc-161-green)">> VORTEX_BRAIN KOPPELING SUCCESVOL.</span><br>
+            > COMMAND LINE INTERFACE ACTIEF.<br>
+            > Typ <span style="color:var(--fc-155-heliocyan)">'help'</span> voor beschikbare commando's.<br><br>
+        </div>
+        <div class="ai-input-area fixed-element">
+            <input type="text" id="ai-input" placeholder="VORTEX_AI> Voer commando in..." onkeypress="if(event.key === 'Enter') runAIQuery()">
+            <button onclick="runAIQuery()" style="width:120px;">UITVOEREN</button>
         </div>
     </div>
 </main>
 
 <main id="ontvanger-view" class="view-container">
     <div class="sidebar">
-        <button id="btnNetworkRx" onclick="initNetwork()" style="border-color:var(--accent-purple); color:var(--accent-purple);">1. KOPPEL OMNI-BRIDGE</button>
-        <div style="color:var(--accent-purple); font-size:0.8em; font-weight:bold;">TACTISCH EXTRACTIE LOGBOEK</div>
+        <button id="btnNetworkRx" class="fixed-element" onclick="initNetwork()">1. KOPPEL OMNI-BRIDGE</button>
+        <div class="fixed-element" style="color:#aaa; font-size:0.8em; font-weight:bold; letter-spacing:1px; border-bottom:1px solid #222; padding-bottom:5px;">TACTISCH EXTRACTIE LOGBOEK</div>
         
         <div class="scroll-box rx-log" id="rx-log">
             > ONTVANGER ONLINE. Wachten op datalink...<br>
@@ -178,10 +239,10 @@
     let isConnecting = false;
 
     const softwareNodes = {
-        'veld': { title: "1) Veldregistratie Node", tools: ["QField", "ArcGIS Field Maps", "Survey123", "iDAI.field", "3D Scanning UIs"], coords: [51.5833, 4.7667], color: "var(--accent-green)" },
-        'gis': { title: "2) GIS & Webkaart Interfaces", tools: ["QGIS", "ArcGIS Pro", "OpenLayers", "Leaflet"], coords: [52.0705, 4.3007], color: "var(--accent-blue)" },
-        'kb': { title: "3) Knowledge Base Node", tools: ["Cherrytree (.ctb)", "SQLite", "Semantic Graph"], coords: [52.2530, 5.1760], color: "var(--accent-pink)" },
-        'db': { title: "4) Collectiebeheer Node", tools: ["Heurist", "CMS (Museum)"], coords: [51.8425, 5.8395], color: "var(--accent-gold)" }
+        'veld': { title: "FIELD_OPS // NODE_SYNC", tools: ["QField", "ArcGIS Maps", "Survey123"], coords: [51.5833, 4.7667], cssClass: "tag-green", mapColor: "#00b57e" },
+        'gis': { title: "TACTICAL // GIS_ANALYSIS", tools: ["QGIS", "ArcGIS Pro", "Leaflet"], coords: [52.0705, 4.3007], cssClass: "tag-blue", mapColor: "#00a9e0" },
+        'kb': { title: "VORTEX_BRAIN // KNOWLEDGE BASE", tools: ["Cherrytree (.ctb)", "SQLite", "Semantic Graph"], coords: [52.2530, 5.1760], cssClass: "tag-red", mapColor: "#b31e34" },
+        'db': { title: "DATABASE // COLLECTION_ADMIN", tools: ["Heurist", "CMS (Museum)"], coords: [51.8425, 5.8395], cssClass: "tag-yellow", mapColor: "#ffb200" }
     };
 
     function triggerPututuResonance(freq) {
@@ -206,12 +267,11 @@
         
         if (role === 'zender') {
             document.getElementById('zender-view').style.display = 'grid';
-            document.getElementById('role-badge').innerText = "TERMINAL: COMMAND ZENDER";
+            document.getElementById('role-badge').innerText = "ROLE: COMMAND ZENDER";
             document.getElementById('stat-ai').classList.add('active');
         } else {
             document.getElementById('ontvanger-view').style.display = 'grid';
-            document.getElementById('role-badge').innerText = "TERMINAL: GIS ONTVANGER";
-            document.getElementById('role-badge').style.color = "var(--accent-purple)";
+            document.getElementById('role-badge').innerText = "ROLE: GIS ONTVANGER";
             initMap();
         }
     }
@@ -223,8 +283,7 @@
     }
 
     function logToUI(msg, isError = false) {
-        const color = isError ? "red" : "inherit";
-        const html = `<div style="color:${color}; margin-top:5px;">${msg}</div>`;
+        const html = `<div style="color:${isError ? '#d92534' : 'inherit'}; margin-top:5px;">${msg}</div>`;
         const targetId = currentRole === 'zender' ? 'ai-terminal' : 'rx-log';
         const el = document.getElementById(targetId);
         if(el) { el.innerHTML += html; el.scrollTop = el.scrollHeight; }
@@ -232,103 +291,145 @@
 
     function selectNode(id) {
         selectedNodeId = id;
-        const data = softwareNodes[id];
-        document.querySelectorAll('.data-block').forEach(b => b.style.boxShadow = 'none');
-        event.currentTarget.style.boxShadow = `inset 0 0 15px ${data.color}`;
+        document.querySelectorAll('.data-block').forEach(b => b.classList.remove('selected'));
+        document.getElementById('node-' + id).classList.add('selected');
+        
         if(dc && dc.readyState === 'open') document.getElementById('btnSendNode').disabled = false;
-        logToUI(`> Target geselecteerd: <span style="color:${data.color}">${data.title}</span>`);
+        logToUI(`> Target geselecteerd: ${softwareNodes[id].title}`);
     }
 
     function sendNodeData() {
         if(!selectedNodeId || !dc) return;
         dc.send(JSON.stringify({ type: 'NODE_SYNC', data: softwareNodes[selectedNodeId] }));
-        logToUI(`> <span style="color:var(--accent-green)">[TX] Payload verzonden.</span>`);
+        logToUI(`> [TX] Payload verzonden.`);
     }
 
+    // --- AI TERMINAL CLI LOGICA ---
     function runAIQuery() {
-        let lastAIQuery = document.getElementById('ai-input').value;
-        document.getElementById('ai-input').value = "";
-        if(!lastAIQuery) return;
-        logToUI(`> QUERY: "${lastAIQuery}"`);
-        setTimeout(() => {
-            logToUI(`> Resultaat verwerkt.`);
-            if(dc && dc.readyState === 'open') document.getElementById('btnSendAI').disabled = false;
-        }, 500);
+        let inputField = document.getElementById('ai-input');
+        let query = inputField.value.trim();
+        inputField.value = "";
+        if(!query) return;
+
+        logToUI(`> <span style="color:#aaa;">VORTEX_AI> ${query}</span>`);
+
+        let cmd = query.toLowerCase();
+
+        // 1. HELP COMMANDO
+        if (cmd === 'help' || cmd === '/help') {
+            logToUI(`
+            > <span style="color:var(--fc-108-yellow); font-weight:bold;">=== VORTEX C2 COMMANDO LIJST ===</span><br>
+            > <span style="color:var(--fc-155-heliocyan)">/node add [Naam]</span> : Genereer nieuwe tactische node in linker menu.<br>
+            > <span style="color:var(--fc-155-heliocyan)">/ctb map [Concept]</span> : Projecteer een semantisch netwerk op de kaart.<br>
+            > <span style="color:var(--fc-155-heliocyan)">clear of /clear</span> : Wis de terminal output.<br>
+            > <span style="color:var(--fc-155-heliocyan)">help of /help</span>  : Toon dit overzicht.`);
+        } 
+        // 2. CLEAR COMMANDO
+        else if (cmd === 'clear' || cmd === '/clear') {
+            document.getElementById('ai-terminal').innerHTML = `
+            <span style="color:var(--fc-161-green)">> VORTEX_BRAIN KOPPELING SUCCESVOL.</span><br>
+            > COMMAND LINE INTERFACE ACTIEF.<br>
+            > Typ <span style="color:var(--fc-155-heliocyan)">'help'</span> voor beschikbare commando's.<br><br>`;
+        }
+        // 3. NODE ADD COMMANDO
+        else if (cmd.startsWith('/node add')) {
+            let nodeName = query.substring(9).trim() || "CUSTOM_NODE";
+            let newId = 'n_' + Math.random().toString(36).substr(2, 5);
+            
+            softwareNodes[newId] = { 
+                title: `${nodeName.toUpperCase()} // AI_GENERATED`, 
+                tools: ["AI Script", "Python API"], 
+                coords: [52.1 + (Math.random()*0.5), 5.0 + (Math.random()*0.5)], 
+                cssClass: "tag-blue", mapColor: "#00a9e0"
+            };
+
+            let container = document.getElementById('node-container');
+            let newHTML = `
+                <div class="data-block" id="node-${newId}" onclick="selectNode('${newId}')">
+                    <div class="data-title">${nodeName.toUpperCase()} // AI_GENERATED</div>
+                    <div class="data-desc">Via CLI gegenereerde tactische node.</div>
+                    <div class="tool-tags-container">
+                        <span class="tool-tag tag-blue">AI Script</span><span class="tool-tag tag-blue">Python API</span>
+                    </div>
+                </div>`;
+            container.insertAdjacentHTML('beforeend', newHTML);
+            logToUI(`> <span style="color:var(--fc-161-green);">[SUCCES] Node '${nodeName}' gegenereerd in paneel.</span>`);
+        } 
+        // 4. CTB MAPPING COMMANDO (Verstuurt signaal naar GIS Map)
+        else if (cmd.startsWith('/ctb map')) {
+            let concept = query.substring(8).trim() || "Nexus_Core";
+            if (dc && dc.readyState === 'open') {
+                dc.send(JSON.stringify({ type: 'AI_CTB_MAP', concept: concept }));
+                logToUI(`> <span style="color:var(--fc-161-green);">[TX] P2P CTB_MAP instructie verzonden.</span><br>> Concept: [${concept}]`);
+            } else {
+                logToUI(`> [FOUT] Omni-Bridge niet actief. Kan mapping niet forceren over netwerk.`, true);
+            }
+        } 
+        // 5. ONBEKEND COMMANDO
+        else {
+            setTimeout(() => { 
+                logToUI(`> Onbekend commando of parameter. Typ <span style="color:var(--fc-108-yellow)">'help'</span> voor beschikbare commando's.`); 
+            }, 300);
+        }
     }
 
-    function sendAIResult() {
-        let lastAIQuery = document.getElementById('ai-input').value;
-        dc.send(JSON.stringify({ type: 'AI_QUERY', text: lastAIQuery }));
-        document.getElementById('btnSendAI').disabled = true;
-    }
-
-    function activateToolOnMap(toolName, lat, lon, color) {
+    // --- DE ONTVANGER: DYNAMISCHE MAP RENDERER ---
+    function executeRemoteCherrytree(concept) {
         if (!map) return;
-        let extractLog = `<div class="extract-box" style="border-color:${color};">
-            <strong style="color:${color}">> EXTRACTIE: ${toolName.toUpperCase()}</strong><br>
+        const popColor = "#b31e34"; 
+        
+        let lat = 52.0 + (Math.random() * 0.8 - 0.4);
+        let lon = 5.2 + (Math.random() * 1.0 - 0.5);
+
+        let extractLog = `<div class="extract-box" style="border-color:${popColor};">
+            <strong style="color:${popColor}">> AI OVERRIDE: CHERRYTREE MAPPING</strong><br>
+            Concept Query: [${concept}]<br>`;
+
+        L.circleMarker([lat, lon], {color: popColor, radius: 10, fillOpacity: 1}).addTo(extractionLayers).bindPopup(`<b>AI Cluster</b><br>Onderwerp: ${concept}`).openPopup();
+
+        let branches = Math.floor(Math.random() * 4) + 3; 
+        
+        for(let i = 0; i < branches; i++) {
+            let angle = (i * (Math.PI * 2)) / branches;
+            let dist = 0.08 + (Math.random() * 0.1);
+            let cLat = lat + (Math.sin(angle) * dist);
+            let cLon = lon + (Math.cos(angle) * dist);
+            
+            L.polyline([[lat, lon], [cLat, cLon]], {color: popColor, weight: 2, dashArray: "3 8", opacity: 0.8}).addTo(extractionLayers);
+            L.circleMarker([cLat, cLon], {color: popColor, radius: 5, fillOpacity: 0.5}).addTo(extractionLayers).bindPopup(`<b>Sub-node 0${i}</b><br>Gekoppeld aan: ${concept}`);
+        }
+        
+        extractLog += `<span style="color:#888;">Actie: ${branches} semantische vertakkingen geplot op map.</span></div>`;
+        logToUI(extractLog);
+        map.flyTo([lat, lon], 10);
+        triggerPututuResonance(130); 
+    }
+
+    function activateToolOnMap(toolName, lat, lon, popColor) {
+        if (!map) return;
+        
+        let extractLog = `<div class="extract-box" style="border-left-color:${popColor};">
+            <strong style="color:#fff">> EXTRACTIE: ${toolName.toUpperCase()}</strong><br>
             Locatie: [${lat.toFixed(4)}, ${lon.toFixed(4)}]<br>`;
 
-        if (toolName.includes("QField") || toolName.includes("QGIS")) {
+        if (toolName.includes("QField") || toolName.includes("QGIS") || toolName.includes("OpenLayers")) {
             const offset = 0.05;
             const latlngs = [[lat-offset, lon-offset], [lat+offset, lon-offset], [lat+offset, lon+offset], [lat-offset, lon+offset]];
-            L.polygon(latlngs, {color: color, fillOpacity: 0.2, weight: 2}).addTo(extractionLayers).bindPopup(`<b>${toolName} GeoJSON Data</b><br>4 Vertices geëxtraheerd.`).openPopup();
-            extractLog += `<span style="color:#888;">Data Type: GeoJSON Polygonen<br>Status: Succes (4 vertices)</span>`;
+            L.polygon(latlngs, {color: popColor, fillOpacity: 0.2, weight: 2}).addTo(extractionLayers).bindPopup(`<b>${toolName} GeoJSON Data</b>`).openPopup();
+            extractLog += `<span style="color:#888;">Data Type: GeoJSON Polygonen</span>`;
             map.flyTo([lat, lon], 11);
-
-        } else if (toolName.includes("Cherrytree") || toolName.includes("SQLite") || toolName.includes("Semantic Graph")) {
-            
-            // --- DIEPE CHERRYTREE DATAMAPPING ---
-            // 1. Plot de Root Database Node
-            L.circleMarker([lat, lon], {color: color, radius: 10, fillOpacity: 1}).addTo(extractionLayers)
-             .bindPopup(`<div style="font-size:1.1em; border-bottom:1px solid ${color}; margin-bottom:5px;"><b>[ VORTEX KNOWLEDGE BASE ]</b></div>DB: Cherrytree_Master.ctb<br>Query: SELECT * FROM nodes;`).openPopup();
-            
-            // 2. Definieer de specifieke theorie-clusters (uit de VORTEX documentatie)
-            const semanticNodes = [
-                { id: "ELS", angle: 0, dist: 0.16, naam: "ELS-Algoritme (Daniël 12)", data: "Formule: n + (n+d)...<br>Structuur: 5-Integer<br>Cluster: HaMashiach" },
-                { id: "AKO", angle: Math.PI/2, dist: 0.12, naam: "Archeoakoestiek", data: "Resonantie: 110.0 Hz<br>Shift: Prefrontale Cortex<br>Model: Mechanisch Kam-filter" },
-                { id: "GEO", angle: Math.PI, dist: 0.15, naam: "Gematria & Fysica", data: "Kesil (Orion) = 120<br>Gulden As: 161.6°<br>LFO Trigger: 100 μF Condensator" },
-                { id: "TOR", angle: (3*Math.PI)/2, dist: 0.13, naam: "VORTEX Architectuur", data: "Matrix: 52-bit Mersenne<br>Topologie: B(2,6) Torus<br>Rotatie: Quaternion Engine" }
-            ];
-
-            let logDetails = `<br><span style="color:${color};">[+] SQL INNER JOIN voltooid. 4 theorie-clusters geëxtraheerd.</span><br><br>`;
-
-            // 3. Teken de edges en sub-nodes
-            semanticNodes.forEach((sn) => {
-                let cLat = lat + (Math.sin(sn.angle) * sn.dist);
-                let cLon = lon + (Math.cos(sn.angle) * sn.dist);
-                
-                // Datamapping Lijn
-                L.polyline([[lat, lon], [cLat, cLon]], {color: color, weight: 2, dashArray: "4 6", opacity: 0.6}).addTo(extractionLayers);
-                
-                // Child Node met uitgebreide popup
-                L.circleMarker([cLat, cLon], {color: color, radius: 6, fillOpacity: 0.9}).addTo(extractionLayers)
-                 .bindPopup(`<div style="border-left:3px solid ${color}; padding-left:8px;"><b>Node [${sn.id}]</b><br><span style="color:${color}">${sn.naam}</span><br>---<br>${sn.data}</div>`);
-                 
-                // Bouw het logboek op
-                logDetails += `<span style="color:#888;">├─ MAPPING: [${sn.id}] -> ${sn.naam}</span><br>`;
-            });
-
-            extractLog += `${logDetails}<br><span style="color:#aaa;">Actie: Semantic Knowledge Graph (CTB) gerenderd in fysieke 2D ruimte.</span>`;
-            map.flyTo([lat, lon], 9);
-
-        } else if (toolName.includes("ArcGIS") || toolName.includes("Leaflet")) {
-            for(let i=0; i<5; i++) {
-                let rLat = lat + (Math.random() * 0.1 - 0.05);
-                let rLon = lon + (Math.random() * 0.1 - 0.05);
-                L.circleMarker([rLat, rLon], {color: color, radius: 5, fillOpacity: 0.8}).addTo(extractionLayers);
-            }
-            extractLog += `<span style="color:#888;">Data Type: Feature Layer Sync<br>Status: 5 Artefact-nodes gelokaliseerd.</span>`;
-            map.flyTo([lat, lon], 12);
-
+        } else if (toolName.includes("Cherrytree") || toolName.includes("SQLite") || toolName.includes("Semantic")) {
+            executeRemoteCherrytree("Knowledge_Base_Root");
+            return; 
         } else {
-            L.circle([lat, lon], {color: color, radius: 5000, fillOpacity: 0.2}).addTo(extractionLayers);
-            extractLog += `<span style="color:#888;">Data Type: Tabulaire Records (CSV/DB)<br>Records: 142 gevonden<br>Meta: [Context_ID, Vondst_Type, Diepte]</span>`;
+            L.circleMarker([lat, lon], {color: popColor, radius: 8, fillOpacity: 0.8}).addTo(extractionLayers);
+            extractLog += `<span style="color:#888;">Data Type: General Sync</span>`;
+            map.flyTo([lat, lon], 12);
         }
 
         extractLog += `</div>`;
         logToUI(extractLog);
 
-        // VORTEX Audio Feedback Trigger
         if (dc && dc.readyState === 'open') {
             dc.send(JSON.stringify({ type: 'AUDIO_EXCITATION', tool: toolName, freq: 110 }));
         }
@@ -337,26 +438,30 @@
     function processIncomingData(rawData) {
         try {
             const msg = JSON.parse(rawData);
+            
             if (msg.type === 'NODE_SYNC') {
                 const node = msg.data;
                 extractionLayers.clearLayers(); 
                 
                 let toolsHTML = "";
                 node.tools.forEach(tool => { 
-                    toolsHTML += `<button class="tool-btn-rx" style="border-color:${node.color}; color:${node.color};" onclick="activateToolOnMap('${tool}', ${node.coords[0]}, ${node.coords[1]}, '${node.color}')">${tool}</button>`; 
+                    toolsHTML += `<button class="tool-btn-rx ${node.cssClass}" onclick="activateToolOnMap('${tool}', ${node.coords[0]}, ${node.coords[1]}, '${node.mapColor}')">${tool}</button>`; 
                 });
 
                 logToUI(`
                     <div class="rx-incoming">
-                        <div style="color:${node.color}; font-weight:bold; font-size: 1.1em;">${node.title}</div>
-                        <div style="margin: 5px 0;">${toolsHTML}</div>
+                        <div style="color:#fff; font-weight:bold; font-size: 1.1em;">${node.title}</div>
+                        <div style="margin: 5px 0; display:flex; flex-wrap:wrap;">${toolsHTML}</div>
                     </div>`);
                 
                 if(map) {
-                    const icon = L.divIcon({ html: `<div style="background:${node.color}; width:20px; height:20px; border-radius:50%; box-shadow:0 0 15px ${node.color}; border: 2px solid #fff;"></div>`, className: ''});
-                    L.marker(node.coords, {icon}).addTo(extractionLayers).bindPopup(`<b style="color:#000;">${node.title}</b>`).openPopup();
+                    const icon = L.divIcon({ html: `<div style="background:${node.mapColor}; width:20px; height:20px; border-radius:50%; box-shadow:0 0 15px ${node.mapColor}; border: 2px solid #000;"></div>`, className: ''});
+                    L.marker(node.coords, {icon}).addTo(extractionLayers).bindPopup(`<b>${node.title}</b>`).openPopup();
                     map.flyTo(node.coords, 9, {duration: 2});
                 }
+            } 
+            else if (msg.type === 'AI_CTB_MAP') {
+                executeRemoteCherrytree(msg.concept);
             }
         } catch(e) {}
     }
@@ -389,9 +494,8 @@
         }
 
         ws.onopen = () => { 
-            logToUI(`> <span style="color:var(--accent-green)">WebSocket Verbonden (Poort 1880).</span> INIT WebRTC...`);
+            logToUI(`> WebSocket Verbonden (Poort 1880). INIT WebRTC...`);
             setupWebRTC(); 
-            
             if (currentRole === 'ontvanger') {
                 ws.send(JSON.stringify({payload: {type: 'peer_joined', senderID: myID}}));
             } else if (currentRole === 'zender') {
@@ -400,7 +504,7 @@
         };
 
         ws.onerror = () => { 
-            logToUI("> [FOUT] Geen verbinding met Node-RED. Controleer je backend!", true); 
+            logToUI("> [FOUT] Geen verbinding met Node-RED.", true); 
             isConnecting = false;
             document.getElementById(btnId).disabled = false;
         };
@@ -416,19 +520,16 @@
             
             try {
                 if (d.type === 'request_handshake' && currentRole === 'ontvanger') {
-                    logToUI("> Handshake verzoek van Zender ontvangen. Bevestig aanwezigheid...");
                     ws.send(JSON.stringify({payload: {type: 'peer_joined', senderID: myID}}));
                 }
                 else if (d.type === 'peer_joined' && currentRole === 'zender') {
                     if (pc.signalingState !== 'stable') return; 
-                    logToUI("> Ontvanger gedetecteerd. Verzend WebRTC offer...");
                     const o = await pc.createOffer();
                     await pc.setLocalDescription(o);
                     ws.send(JSON.stringify({payload:{type:'offer', offer:o, senderID:myID}}));
                 }
                 else if (d.type === 'offer' && currentRole === 'ontvanger') {
                     if (pc.signalingState !== 'stable') return; 
-                    logToUI("> Offer ontvangen. Verzend Answer...");
                     await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
                     const a = await pc.createAnswer(); 
                     await pc.setLocalDescription(a);
@@ -463,7 +564,7 @@
         
         pc.onconnectionstatechange = () => {
             if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-                logToUI("> [FOUT] P2P Verbinding verbroken of afgewezen.", true);
+                logToUI("> [FOUT] P2P Verbinding verbroken.", true);
                 isConnecting = false;
                 ['btnNetwork', 'btnNetworkRx'].forEach(id => { const b = document.getElementById(id); if(b) { b.disabled = false; b.innerText = "KOPPEL OMNI-BRIDGE"; }});
                 document.getElementById('stat-p2p').classList.remove('active');
@@ -481,22 +582,18 @@
 
     function attachDCEvents() {
         const handleOpen = () => {
-            logToUI(`> <span style="color:var(--accent-gold)">[SUCCES] DATAKANAAL OPEN (Latentie <40ms)!</span>`);
+            logToUI(`> [SUCCES] DATAKANAAL OPEN (Latentie <40ms)!`);
             document.getElementById('stat-p2p').classList.add('active');
             
             ['btnNetwork', 'btnNetworkRx'].forEach(id => {
                 const b = document.getElementById(id);
-                if(b) { b.disabled = true; b.innerText = "BRUG ACTIEF"; }
+                if(b) { b.disabled = true; b.innerText = "BRUG ACTIEF"; b.style.color = "var(--fc-161-green)"; }
             });
             
             if(currentRole === 'zender' && selectedNodeId) document.getElementById('btnSendNode').disabled = false;
         };
 
-        if (dc.readyState === 'open') {
-            handleOpen();
-        } else {
-            dc.onopen = handleOpen;
-        }
+        if (dc.readyState === 'open') { handleOpen(); } else { dc.onopen = handleOpen; }
         
         dc.onmessage = e => { 
             try {
@@ -505,14 +602,13 @@
                     processIncomingData(e.data); 
                 } 
                 else if (currentRole === 'zender' && msg.type === 'AUDIO_EXCITATION') {
-                    logToUI(`> <span style="color:var(--accent-gold)">[RX P2P] EXCITATIE ONTVANGEN via ${msg.tool}.</span><br>> 100 μF LFO getriggerd op ${msg.freq}Hz.`);
+                    logToUI(`> [RX P2P] EXCITATIE ONTVANGEN via ${msg.tool}.`);
                     triggerPututuResonance(msg.freq);
                 }
             } catch(err) {}
         }; 
     }
 
-    setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString(); }, 1000);
 </script>
 </body>
 </html>
