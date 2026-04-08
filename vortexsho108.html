@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX v119.0.1 // SYSTEM MAP & ANALYTICS GRID</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+    <style>
+        :root {
+            /* --- FABER-CASTELL TACTICAL PALETTE --- */
+            --fc-100-black: #050508;          
+            --fc-155-heliocyan: #00a9e0;      
+            --fc-108-yellow: #ffb200;         
+            --fc-134-crimson: #b31e34;        
+            --fc-219-deepred: #d92534;        
+            --fc-161-green: #00b57e;          
+            --panel-bg: #0a0a0d; 
+            --border-color: #222;
+            --text-main: #e0e0e0; 
+            --font-mono: 'Courier New', Courier, monospace;
+            --els-neon: #ff00ff; 
+            --shodan-red: #ff3300;
+            --interpol-blue: #1e90ff;
+        }
+
+        body, html { background-color: var(--fc-100-black); color: var(--text-main); font-family: var(--font-mono); margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        header { flex: 0 0 60px; height: 60px; background: linear-gradient(180deg, #050508 0%, #0a0a0d 100%); border-bottom: 1px solid var(--border-color); padding: 0 25px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; box-sizing: border-box; }
+        .title { color: #fff; font-size: 1.4em; font-weight: bold; letter-spacing: 2px; }
+        .version-tag { font-size: 0.45em; background: #333; color: #fff; padding: 2px 6px; border-radius: 2px; margin-left: 10px; vertical-align: middle; }
+        .status-container { display:flex; gap:30px; }
+        .status-item { display: flex; align-items: center; gap: 8px; color: #666; font-size: 0.7em; letter-spacing: 2px; transition: 0.3s; }
+        .status-item.active { color: var(--fc-161-green); text-shadow: 0 0 10px var(--fc-161-green); }
+        .status-item.gateway { color: #a442f5; text-shadow: 0 0 10px #a442f5; }
+
+        .view-container { display: none; grid-template-columns: 450px 1fr; width: 100%; height: calc(100vh - 60px); overflow: hidden; }
+        .sidebar { background: var(--panel-bg); border-right: 1px solid var(--border-color); padding: 15px; box-sizing: border-box; height: 100%; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+        .scroll-box { flex-grow: 1; min-height: 0; overflow-y: auto; padding-right: 10px; scrollbar-width: thin; }
+        .scroll-box::-webkit-scrollbar { width: 6px; } .scroll-box::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+        .fixed-element { flex-shrink: 0; }
+
+        .ai-terminal, .rx-log { background: #000; border: 1px solid #333; padding: 10px; font-size: 0.8em; line-height: 1.4; color: var(--text-main); word-wrap: break-word; overflow-y: auto; height: 100%;}
+        .rx-map-container { background: #000; height: 100%; width: 100%; overflow: hidden; position: relative; }
+        #geoMap { width: 100%; height: 100%; }
+
+        .data-block { background: #0d0d12; border: 1px solid #222; border-radius: 4px; padding: 12px; position: relative; cursor: pointer; transition: all 0.2s ease; margin-bottom: 12px; }
+        .data-block:hover { background: #15151c; border-color: #444; }
+        .data-block.selected { background: #111; border-color: #666; box-shadow: 0 0 10px rgba(255,255,255,0.05); }
+        .data-title { color: #fff; font-size: 0.9em; text-transform: uppercase; font-weight: bold; margin-bottom: 6px; letter-spacing: 1px; }
+        .data-desc { color: #aaa; font-size: 0.75em; line-height: 1.4; margin-bottom: 10px; }
+        
+        .tool-tags-container { display: flex; flex-wrap: wrap; gap: 6px; }
+        .tool-tag { display: inline-block; font-size: 0.7em; padding: 3px 8px; border-radius: 3px; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); background: #333; }
+        .tag-green { background: var(--fc-161-green); } .tag-yellow { background: var(--fc-108-yellow); color: #000; text-shadow: none; }
+        .tag-purple { background: #a442f5; } .tag-shodan { background: var(--shodan-red); color: #fff; } .tag-interpol { background: var(--interpol-blue); }
+
+        button { background: #111; border: 1px solid #444; color: #eee; padding: 12px; cursor: pointer; width: 100%; font-weight: bold; text-transform: uppercase; font-family: inherit; transition: 0.2s; letter-spacing: 1px; border-radius: 2px; }
+        button:hover:not(:disabled) { background: #222; border-color: #666; }
+        button.btn-send { background: #eee; color: #000; border-color: #fff; } button.btn-send:hover:not(:disabled) { background: #fff; }
+        button:disabled { opacity: 0.3; cursor: not-allowed; border-color: #333; background: transparent; }
+        
+        .ai-input-area { display: flex; gap: 10px; margin-top: 10px; }
+        .ai-input-area input { flex-grow: 1; background: #000; border: 1px solid #444; color: #fff; padding: 10px; font-family: var(--font-mono); outline: none; border-radius: 2px; }
+        .ai-input-area input:focus { border-color: var(--fc-155-heliocyan); }
+        
+        #role-selector { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,5,8,0.98); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; }
+        .progress-bar { width: 100%; background: #222; height: 4px; margin-top: 5px; display:none; }
+        .progress-fill { height: 100%; background: var(--fc-155-heliocyan); width: 0%; transition: width 0.1s; }
+
+        /* --- OVERLAYS --- */
+        #kb-overlay { display: none; position: absolute; top: 60px; left: 0; width: 100%; height: calc(100% - 60px); background: rgba(5,5,8,0.95); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .kb-window { background: #0a0a0d; border: 1px solid var(--fc-134-crimson); width: 85%; height: 85%; display: flex; flex-direction: column; box-shadow: 0 0 30px rgba(179,30,52,0.15); }
+        .kb-header { background: var(--fc-134-crimson); color: #fff; padding: 12px 20px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .kb-close-btn { background: none; border: none; color: #fff; font-size: 1.2em; cursor: pointer; padding: 0; width: auto; font-family: inherit; }
+        .kb-body { display: flex; flex-grow: 1; overflow: hidden; }
+        .kb-sidebar { width: 300px; border-right: 1px solid #333; padding: 15px; overflow-y: auto; background: #050508; }
+        .kb-content { flex-grow: 1; padding: 30px; overflow-y: auto; background: #020202; white-space: pre-wrap; font-size: 0.95em; line-height: 1.6; color: #ccc; }
+        .tree-node { cursor: pointer; color: var(--fc-155-heliocyan); margin-bottom: 8px; font-weight: bold; }
+        .tree-leaf { margin-left: 20px; color: #888; cursor: pointer; margin-bottom: 6px; } .tree-leaf.active { color: var(--fc-161-green); font-weight: bold; border-left: 2px solid var(--fc-161-green); padding-left: 5px; }
+
+        /* D3 SYSTEM MAP OVERLAY */
+        #sysmap-overlay { display: none; position: absolute; top: 60px; left: 0; width: 100%; height: calc(100% - 60px); background: rgba(5,5,8,0.98); z-index: 2500; flex-direction: column; }
+        .sysmap-header { width: 100%; background: var(--fc-155-heliocyan); color: #000; padding: 10px 20px; font-weight: bold; display: flex; justify-content: space-between; box-sizing: border-box; border-bottom: 1px solid #fff; }
+        .sysmap-close-btn { background: none; border: none; color: #000; font-size: 1.2em; cursor: pointer; font-weight:bold; padding: 0; width: auto; }
+        #sysmap-svg { width: 100%; height: calc(100% - 40px); }
+        .sys-node circle { stroke: #fff; stroke-width: 1.5px; cursor: grab; }
+        .sys-node text { font-family: var(--font-mono); font-size: 11px; fill: #eee; pointer-events: none; text-anchor: middle; font-weight: bold; text-shadow: 1px 1px 3px #000;}
+        .sys-link { stroke: #444; stroke-opacity: 0.8; stroke-width: 2px; }
+
+        /* Leaflet Popups & Controls */
+        .leaflet-popup-content-wrapper { background: #111 !important; color: #d0d0d0 !important; border: 1px solid #444; border-radius: 2px; }
+        .leaflet-popup-tip { background: #111 !important; border-top: 1px solid #444; border-left: 1px solid #444; }
+        .leaflet-popup-content { font-family: var(--font-mono); color: #eee !important; font-size: 1.05em; line-height: 1.4; margin: 12px; }
+        .leaflet-popup-content b { color: #fff !important; font-weight: bold; }
+        
+        .dyn-marker { width: 18px; height: 18px; border-radius: 3px; border: 2px solid #fff; box-shadow: 0 0 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size:10px; color:#fff;}
+        
+        /* D3 SVG Overlay Layer styling */
+        .d3-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 450; }
+        .d3-line { stroke: var(--fc-155-heliocyan); stroke-width: 1.5; opacity: 0.6; stroke-dasharray: 4, 4; animation: dash 20s linear infinite; }
+        .d3-glow { filter: drop-shadow(0 0 3px rgba(0,169,224,0.8)); }
+        @keyframes dash { to { stroke-dashoffset: 1000; } }
+        .heat-circle { mix-blend-mode: screen; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<input type="file" id="vortex-file-import" style="display:none;" accept=".json,.kml,.gpx,.geojson,.ged" onchange="handleFileImport(this)">
+<input type="file" id="vortex-pdf-transfer" style="display:none;" accept=".pdf" onchange="startPDFTransfer(this)">
+
+<div id="kb-overlay">
+    <div class="kb-window">
+        <div class="kb-header"><span>VORTEX_BRAIN // CHERRYTREE DB (.ctb)</span><button class="kb-close-btn" onclick="toggleKB()">[ X ]</button></div>
+        <div class="kb-body"><div class="kb-sidebar" id="kb-sidebar"></div><div class="kb-content" id="kb-content">> Selecteer node...</div></div>
+    </div>
+</div>
+
+<div id="sysmap-overlay">
+    <div class="sysmap-header"><span>VORTEX_BRAIN // SYSTEM ARCHITECTURE & DATA FLOW</span><button class="sysmap-close-btn" onclick="SysMap_Engine.toggle()">[ X ]</button></div>
+    <svg id="sysmap-svg"></svg>
+</div>
+
+<div id="role-selector">
+    <div style="color:#fff; font-size:2em; margin-bottom:20px; font-weight: bold; letter-spacing: 5px;">VORTEX C2 NEXUS</div>
+    <button class="role-btn" style="width: 400px; padding: 25px;" onclick="initRole('zender')">COMMAND ZENDER (MASTER)</button>
+    <button class="role-btn receiver" style="width: 400px; padding: 25px;" onclick="initRole('ontvanger')">GIS ONTVANGER (HUD)</button>
+</div>
+
+<header>
+    <div class="header-left"><div class="title">VORTEX C2 NEXUS <span class="version-tag">v119.0.1 (SYSMAP_D3_FIX)</span></div></div>
+    <div class="header-right" style="display:flex; align-items:center; gap: 20px;">
+        <div class="status-container">
+            <div id="stat-p2p" class="status-item">● OMNI_BRIDGE_P2P</div>
+            <div id="stat-gateway" class="status-item gateway">● LOCAL_DB</div>
+        </div>
+        <span id="role-badge" style="font-size:0.7em; color:#aaa; border: 1px solid #444; padding: 4px;">WACHTEN OP ROL</span>
+    </div>
+</header>
+
+<main id="zender-view" class="view-container">
+    <div class="sidebar">
+        <button id="btnNetwork" class="fixed-element" onclick="initNetwork()">1. KOPPEL OMNI-BRIDGE</button>
+        <div class="fixed-element" style="color:#888; font-size:0.8em; border-bottom:1px solid #222; padding-bottom:5px; margin-top:10px;">TACTICAL NODES & SENSORS</div>
+        
+        <div class="scroll-box" id="node-container">
+            <div class="data-block" id="node-gateway" onclick="selectNode('gateway')">
+                <div class="data-title">APIGEE // AI GATEWAY</div>
+                <div class="data-desc">LocalDB, Governance & Agent Routing.</div>
+                <div class="tool-tags-container"><span class="tool-tag tag-purple">SysMap</span><span class="tool-tag tag-purple">LocalDB</span></div>
+            </div>
+            <div class="data-block" id="node-cyber" onclick="selectNode('cyber')">
+                <div class="data-title">INTEL // CYBER_GRID</div>
+                <div class="data-desc">IoT Scanning en Red Notices.</div>
+                <div class="tool-tags-container">
+                    <span class="tool-tag tag-shodan">Shodan</span><span class="tool-tag tag-interpol">Interpol</span>
+                </div>
+            </div>
+            <div class="data-block" id="node-osint" onclick="selectNode('osint')">
+                <div class="data-title">OSINT // MEDIA_NET</div>
+                <div class="data-desc">Decentrale netwerken en Google Dorks.</div>
+                <div class="tool-tags-container">
+                    <span class="tool-tag" style="background:#0ebd66;">Matrix.org</span><span class="tool-tag" style="background:#4285F4;">Google Dorks</span>
+                </div>
+            </div>
+            <div class="data-block" id="node-db" onclick="selectNode('db')">
+                <div class="data-title">DYNAMIC // CUSTOM_API</div>
+                <div class="data-desc">Gebruikersgedefinieerde gateways via /deploy.</div>
+                <div class="tool-tags-container">
+                    <span class="tool-tag tag-yellow">JSON DB</span><span class="tool-tag tag-yellow">User-Defined</span>
+                </div>
+            </div>
+        </div>
+        
+        <button id="btnSendNode" class="btn-send fixed-element" onclick="sendNodeData()" disabled>ZEND DATA NAAR ONTVANGER</button>
+    </div>
+    
+    <div class="sidebar" style="background:#020202; border:none; display:flex; flex-direction:column;">
+        <div class="scroll-box ai-terminal" id="ai-terminal">
+            <span style="color:var(--fc-155-heliocyan)">> D3.JS SYSMAP ENGINE GELADEN.</span><br>
+            > DYNAMISCHE ARCHITECTUUR ACTIEF.<br>
+            > Typ <span style="color:var(--fc-155-heliocyan)">'/help'</span> voor commando's.<br><br>
+        </div>
+        <div class="progress-bar" id="tx-progress"><div class="progress-fill" id="tx-fill"></div></div>
+        <div class="ai-input-area fixed-element">
+            <input type="text" id="ai-input" placeholder="VORTEX_AI> Voer commando in..." onkeypress="if(event.key === 'Enter') processThroughGateway()">
+            <button onclick="processThroughGateway()" style="width:120px;">UITVOEREN</button>
+        </div>
+    </div>
+</main>
+
+<main id="ontvanger-view" class="view-container">
+    <div class="sidebar">
+        <button id="btnNetworkRx" class="fixed-element" onclick="initNetwork()">1. KOPPEL OMNI-BRIDGE</button>
+        <div class="fixed-element" style="color:#aaa; font-size:0.8em; font-weight:bold; letter-spacing:1px; border-bottom:1px solid #222; padding-bottom:5px; margin-top:10px;">TACTISCH EXTRACTIE LOGBOEK</div>
+        <div class="scroll-box rx-log" id="rx-log">> ONTVANGER ONLINE. Wachten op datalink...<br></div>
+        <div class="progress-bar" id="rx-progress"><div class="progress-fill" id="rx-fill"></div></div>
+    </div>
+    <div class="rx-map-container">
+        <div id="geoMap"></div>
+        <svg id="d3-overlay" class="d3-overlay">
+            <defs>
+                <filter id="heatmap-tactical" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur" />
+                    <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="glow" />
+                    <feComponentTransfer in="glow"><feFuncR type="table" tableValues="0 0.8 1 1"/><feFuncG type="table" tableValues="0 0.1 0.8 0.2"/><feFuncB type="table" tableValues="0 0 0 0"/></feComponentTransfer>
+                </filter>
+                <filter id="heatmap-cyber" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur" />
+                    <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="glow" />
+                     <feComponentTransfer in="glow"><feFuncR type="table" tableValues="0 0 0.5 1"/><feFuncG type="table" tableValues="0 0.5 1 1"/><feFuncB type="table" tableValues="0.5 1 1 1"/></feComponentTransfer>
+                </filter>
+                 <filter id="heatmap-magma" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur" />
+                    <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="glow" />
+                     <feComponentTransfer in="glow"><feFuncR type="table" tableValues="0 0.5 1 1"/><feFuncG type="table" tableValues="0 0 0.8 1"/><feFuncB type="table" tableValues="0 0 0 1"/></feComponentTransfer>
+                </filter>
+            </defs>
+            <g id="heatmap-group" style="display:none;"></g>
+            <g id="lines-group"></g>
+        </svg>
+    </div>
+</main>
+
+<script>
+    // --- GLOBALS & VORTEX ENGINES ---
+    const myID = "VTX-" + Math.random().toString(36).substr(2, 5).toUpperCase();
+    let ws, pc, dc, currentRole = null, selectedNodeId = null;
+    let map = null, audioCtx = null, heatLayer = null;
+    let extractionLayers = L.layerGroup(), receivedChunks = [], incomingFileInfo = null;
+    let iceQueue = []; let isConnecting = false;
+    let activeNodesList = []; 
+    let vortexTextBuffer = "VORTEX NEXUS INITIATED. ";
+
+    // --- D3.JS SYSTEM MAP ENGINE (Fixed) ---
+    const SysMap_Engine = {
+        rendered: false,
+        toggle: () => {
+            const el = document.getElementById('sysmap-overlay');
+            if (el.style.display === 'flex') el.style.display = 'none';
+            else { el.style.display = 'flex'; if (!SysMap_Engine.rendered) SysMap_Engine.render(); }
+        },
+        render: () => {
+            SysMap_Engine.rendered = true;
+            const svg = d3.select("#sysmap-svg");
+            const overlay = document.getElementById('sysmap-overlay');
+            const width = overlay.clientWidth; const height = overlay.clientHeight - 40;
+            svg.attr("viewBox", [0, 0, width, height]);
+
+            // Bouw de actuele architectuur op
+            let dbs = GatewayDB.get();
+            let nodes = [
+                {id: "VORTEX_BRAIN", group: 1, radius: 25, color: "#fff"},
+                {id: "Omni-Bridge", group: 2, radius: 15, color: "#00b57e"},
+                {id: "D3_Analytics", group: 3, radius: 15, color: "#00a9e0"},
+                {id: "Apigee_Gateway", group: 1, radius: 20, color: "#a442f5"},
+                {id: "LocalDB", group: 1, radius: 18, color: "#ffb200"}
+            ];
+            let links = [
+                {source: "VORTEX_BRAIN", target: "Omni-Bridge"},
+                {source: "VORTEX_BRAIN", target: "Apigee_Gateway"},
+                {source: "VORTEX_BRAIN", target: "D3_Analytics"},
+                {source: "Apigee_Gateway", target: "LocalDB"}
+            ];
+
+            for (const [key, val] of Object.entries(dbs)) {
+                nodes.push({id: val.naam, group: 4, radius: 12, color: val.color});
+                links.push({source: "LocalDB", target: val.naam});
+            }
+
+            const simulation = d3.forceSimulation(nodes)
+                .force("link", d3.forceLink(links).id(d => d.id).distance(120))
+                .force("charge", d3.forceManyBody().strength(-400))
+                .force("center", d3.forceCenter(width / 2, height / 2));
+
+            const link = svg.append("g").attr("class", "sys-links").selectAll("line").data(links).enter().append("line").attr("class", "sys-link");
+            
+            // FIX: Added .attr("class", "sys-node") here
+            const node = svg.append("g").attr("class", "sys-nodes").selectAll("g").data(nodes).enter().append("g")
+                .attr("class", "sys-node") 
+                .call(d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended));
+
+            node.append("circle").attr("r", d => d.radius).attr("fill", d => d.color);
+            node.append("text").attr("dy", 35).text(d => d.id);
+
+            simulation.on("tick", () => {
+                link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+                node.attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+
+            function dragstarted(event, d) { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
+            function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
+            function dragended(event, d) { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
+        }
+    };
+
+    // --- D3.JS ENGINE (Heatmap & Constellations) ---
+    const D3_Engine = {
+        svg: null, heatGroup: null, linesGroup: null, thermalActive: false, currentColor: 'tactical',
+        init: () => { 
+            if(currentRole === 'ontvanger') {
+                D3_Engine.svg = d3.select("#d3-overlay"); 
+                D3_Engine.heatGroup = d3.select("#heatmap-group");
+                D3_Engine.linesGroup = d3.select("#lines-group");
+                D3_Engine.heatGroup.style("filter", `url(#heatmap-${D3_Engine.currentColor})`);
+            }
+        },
+        drawConnections: () => {
+            if(!D3_Engine.linesGroup || activeNodesList.length < 2) return;
+            D3_Engine.linesGroup.selectAll("*").remove(); 
+            for(let i = 0; i < activeNodesList.length - 1; i++) {
+                const pt1 = map.latLngToContainerPoint(activeNodesList[i].coords);
+                const pt2 = map.latLngToContainerPoint(activeNodesList[i+1].coords);
+                D3_Engine.linesGroup.append("line").attr("x1", pt1.x).attr("y1", pt1.y).attr("x2", pt1.x).attr("y2", pt1.y) 
+                    .attr("class", "d3-line d3-glow").transition().duration(1500).ease(d3.easeCubicOut).attr("x2", pt2.x).attr("y2", pt2.y); 
+            }
+        },
+        renderHeatmap: () => {
+            if(!D3_Engine.heatGroup) return;
+            D3_Engine.heatGroup.selectAll("*").remove();
+            D3_Engine.heatGroup.selectAll("circle").data(activeNodesList).enter().append("circle").attr("class", "heat-circle").attr("r", 30).attr("fill", "rgba(150, 150, 150, 0.4)"); 
+            D3_Engine.updatePositions();
+        },
+        setThermalColor: (color) => {
+            if(['tactical', 'cyber', 'magma'].includes(color)) {
+                D3_Engine.currentColor = color;
+                if(D3_Engine.heatGroup) D3_Engine.heatGroup.style("filter", `url(#heatmap-${color})`);
+            }
+        },
+        toggleThermal: (state) => {
+            D3_Engine.thermalActive = state;
+            if(D3_Engine.heatGroup) {
+                if(state) {
+                    D3_Engine.heatGroup.style("display", "block");
+                    extractionLayers.eachLayer(l => { if(l._icon) l._icon.style.opacity = 0.2; });
+                    D3_Engine.renderHeatmap();
+                } else {
+                    D3_Engine.heatGroup.style("display", "none");
+                    extractionLayers.eachLayer(l => { if(l._icon) l._icon.style.opacity = 1; });
+                }
+            }
+        },
+        updatePositions: () => {
+            if(!D3_Engine.svg) return;
+            D3_Engine.linesGroup.selectAll("line").each(function(d, i) {
+                if(i < activeNodesList.length - 1) {
+                    const pt1 = map.latLngToContainerPoint(activeNodesList[i].coords); const pt2 = map.latLngToContainerPoint(activeNodesList[i+1].coords);
+                    d3.select(this).attr("x1", pt1.x).attr("y1", pt1.y).attr("x2", pt2.x).attr("y2", pt2.y);
+                }
+            });
+            if(D3_Engine.thermalActive) {
+                D3_Engine.heatGroup.selectAll("circle").each(function(d, i) {
+                    const pt = map.latLngToContainerPoint(d.coords); d3.select(this).attr("cx", pt.x).attr("cy", pt.y);
+                });
+            }
+        }
+    };
+
+    // --- DYNAMIC DATABASE (LOCALSTORAGE) ---
+    const defaultDatabases = {
+        'shodan': { naam: 'Shodan IoT Scanner', format: 'REST API', isProtected: false, color: '#ff3300', type: 'cyber' },
+        'interpol': { naam: 'INTERPOL Red Notices', format: 'Simulated API', isProtected: false, color: '#1e90ff', type: 'intel' },
+        'sentinel': { naam: 'ESA Sentinel Copernicus', format: 'Satellite Data', isProtected: false, color: '#00549f', type: 'space' },
+        'matrix': { naam: 'Matrix.org', format: 'Decentralized P2P', isProtected: false, color: '#0ebd66', type: 'comms' },
+        'google': { naam: 'Google OSINT', format: 'Search/Dorking', isProtected: false, color: '#4285F4', type: 'osint' },
+        'w3c': { naam: 'W3C Semantic Web', format: 'RDF/SPARQL', isProtected: false, color: '#005A9C', type: 'tech' },
+        'ietf': { naam: 'IETF Datatracker', format: 'RFC/API', isProtected: false, color: '#eb1e25', type: 'tech' },
+        'opencontext': { naam: 'Open Context', format: 'REST API', isProtected: false, color: '#00a9e0', type: 'geo' },
+        'europeana': { naam: 'Europeana', format: 'API (Key)', isProtected: true, color: '#00b57e', type: 'geo' }
+    };
+
+    const GatewayDB = {
+        get: () => { const stored = localStorage.getItem('vortex_gateways_v119'); return stored ? JSON.parse(stored) : defaultDatabases; },
+        save: (data) => { localStorage.setItem('vortex_gateways_v119', JSON.stringify(data)); SysMap_Engine.rendered = false; }, 
+        deploy: (id, color, naam) => { let db = GatewayDB.get(); db[id] = { naam: naam, format: 'Custom Deployed', isProtected: false, color: color, type: 'custom' }; GatewayDB.save(db); },
+        destroy: (id) => { let db = GatewayDB.get(); if(db[id]) { delete db[id]; GatewayDB.save(db); return true; } return false; }
+    };
+
+    const GematriaEngine = { calculate: (str) => str.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0), getFrequency: (value) => 110 + (value % 300) };
+
+    // --- APIGEE AI GATEWAY ---
+    const Apigee_Gateway = {
+        metrics: { requests: 0, blocked: 0, latency_total: 0 },
+        forbiddenTerms: ['hack', 'exploit', 'destroy', 'delete', 'drop', 'bypass'],
+        
+        inspect: (query) => {
+            if (query.startsWith('/destroy')) return true; 
+            const isUnsafe = Apigee_Gateway.forbiddenTerms.some(term => query.toLowerCase().includes(term));
+            if (isUnsafe) { Apigee_Gateway.metrics.blocked++; logToUI(`> <span style="color:var(--fc-219-deepred)">[APIGEE SAFETY] COMMAND BLOCKED.</span>`); triggerPututuResonance(50); return false; } return true;
+        },
+
+        executeLiveQuery: async (bron, term) => {
+            let dbs = GatewayDB.get(); let db = dbs[bron];
+            if (!db) throw new Error(`Bron '${bron}' niet gevonden in de LocalDB.`);
+            let extractedLat = 52.0; let extractedLon = 5.0; let extractLabel = `[${db.naam}] Data onttrokken voor '${term}'`;
+
+            try {
+                let gVal = GematriaEngine.calculate(term);
+                if (bron === 'shodan') { await new Promise(r => setTimeout(r, 600)); extractedLat = 35.0 + ((gVal % 300) / 10); extractedLon = -90.0 + ((gVal % 500) / 10); extractLabel = `[SHODAN IoT] Onbeveiligd apparaat '${term.toUpperCase()}' gelokaliseerd.`; }
+                else if (bron === 'interpol') { await new Promise(r => setTimeout(r, 500)); extractedLat = 45.764; extractedLon = 4.835; extractLabel = `[INTERPOL INTEL] Match in Red Notice database voor alias '${term.toUpperCase()}'.`; }
+                else if (bron === 'sentinel') { await new Promise(r => setTimeout(r, 800)); extractedLat = 50.0 + ((gVal % 200) / 100); extractedLon = 4.0 + ((gVal % 100) / 100); extractLabel = `[ESA COPERNICUS] Sentinel-2 radarscan gegenereerd.`; }
+                else if (bron === 'matrix') { await new Promise(r => setTimeout(r, 400)); extractedLat = 48.0 + ((gVal % 300) / 100); extractedLon = 2.0 + ((gVal % 300) / 100); extractLabel = `[MATRIX.ORG] Onderschepte P2P Comms in channel '#${term}:matrix.org'.`; }
+                else if (bron === 'google') { await new Promise(r => setTimeout(r, 300)); extractedLat = 37.422; extractedLon = -122.084; extractLabel = `[GOOGLE OSINT] Dorking query 'intitle:\"index of\" ${term}' onthult 3 servers.`; }
+                else if (db.type === 'custom') { await new Promise(r => setTimeout(r, 300)); extractedLat = 50.0 + ((gVal % 200) / 100); extractedLon = 4.0 + ((gVal % 100) / 100); extractLabel = `[${db.naam.toUpperCase()}] Custom data pull voor '${term}'.`; }
+
+                vortexTextBuffer += ` ${extractLabel} `;
+                return { origin: db.type.toUpperCase(), payload: { label: extractLabel, coordinates: [extractedLat, extractedLon], method: `API_${bron.toUpperCase()}`, db_color: db.color, type: db.type, initial: bron.charAt(0).toUpperCase() } };
+            } catch (error) { throw error; }
+        }
+    };
+
+    function toggleKB() { const el = document.getElementById('kb-overlay'); el.style.display = el.style.display === 'flex' ? 'none' : 'flex'; }
+
+    const softwareNodes = { 'gateway': { title: "APIGEE_DB", tools: ["LocalDB"], coords: [0,0], mapColor: "#a442f5" }, 'cyber': { title: "CYBER_GRID", tools: ["Shodan"], coords: [0,0], mapColor: "#ff3300" } };
+    const VortexMapper = { mapFieldData: (payload) => ({ type: 'NODE_SYNC', data: { title: payload.label, coords: payload.coordinates, mapColor: payload.db_color, dataType: payload.type, initial: payload.initial } }) };
+
+    // --- UI & AUDIO ---
+    function logToUI(msg, isError = false) {
+        const el = document.getElementById(currentRole === 'zender' ? 'ai-terminal' : 'rx-log');
+        if(el) { const div = document.createElement('div'); div.style.marginTop = "5px"; if(isError) div.style.color = "var(--fc-219-deepred)"; div.innerHTML = msg; el.appendChild(div); el.scrollTop = el.scrollHeight; }
+    }
+    function triggerPututuResonance(freq) {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator(), gainNode = audioCtx.createGain(); osc.type = 'sine'; osc.frequency.setValueAtTime(freq, audioCtx.currentTime); gainNode.gain.setValueAtTime(0, audioCtx.currentTime); gainNode.gain.linearRampToValueAtTime(0.8, audioCtx.currentTime + 0.05); gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 3.0); osc.connect(gainNode); gainNode.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 3.5);
+    }
+    function initRole(role) {
+        currentRole = role; document.getElementById('role-selector').style.display = 'none';
+        if (role === 'zender') { document.getElementById('zender-view').style.display = 'grid'; document.getElementById('role-badge').innerText = "ROLE: COMMAND ZENDER"; document.getElementById('stat-ai').classList.add('active'); } 
+        else { document.getElementById('ontvanger-view').style.display = 'grid'; document.getElementById('role-badge').innerText = "ROLE: GIS ONTVANGER"; initMap(); D3_Engine.init(); }
+    }
+    function initMap() {
+        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' });
+        const dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© CartoDB' });
+        map = L.map('geoMap', { zoomControl: false, layers: [dark] }).setView([52.0, 5.0], 4);
+        L.control.layers({"Tactical Night": dark, "OpenStreetMap": osm}, null, { collapsed: false }).addTo(map);
+        extractionLayers.addTo(map);
+        map.on("move", D3_Engine.updatePositions); map.on("zoom", D3_Engine.updatePositions);
+    }
+    function selectNode(id) {
+        selectedNodeId = id; document.querySelectorAll('.data-block').forEach(b => b.classList.remove('selected')); document.getElementById('node-' + id).classList.add('selected');
+        if(dc && dc.readyState === 'open') document.getElementById('btnSendNode').disabled = false;
+    }
+    function sendNodeData() {
+        if(!selectedNodeId || !dc) return; dc.send(JSON.stringify({ type: 'NODE_SYNC', data: softwareNodes[selectedNodeId] })); logToUI(`> [TX] Payload verzonden.`);
+    }
+
+    // --- AI GATEWAY CLI LOGICA ---
+    async function processThroughGateway() {
+        let inputField = document.getElementById('ai-input'); let query = inputField.value.trim(); inputField.value = ""; if(!query) return;
+        logToUI(`> <span style="color:#aaa;">VORTEX_AI> ${query}</span>`);
+        if (!Apigee_Gateway.inspect(query)) return;
+        let parts = query.split(' '); let cmd = parts[0].toLowerCase(); let args = parts.slice(1);
+        Apigee_Gateway.metrics.requests++;
+
+        switch(cmd) {
+            case 'help': case '/help':
+                logToUI(`
+                    <span style="color:var(--fc-155-heliocyan); font-weight:bold;">=== v119 SYSMAP COMMANDS ===</span><br>
+                    <span style="color:var(--fc-161-green)">/sysmap</span> : Toon D3.js Systeem Architectuur Overlay.<br>
+                    <span style="color:var(--fc-108-yellow)">/thermal [on|off]</span> : Toggle D3 Native Heatmap.<br>
+                    <span style="color:var(--shodan-red)">/fetch shodan [term]</span> : Zoek IoT / SCADA systemen.<br>
+                    <span style="color:var(--fc-161-green)">/deploy gateway [id] [hex] [Naam]</span> : Creëer DB node.<br>
+                    <span style="color:var(--els-neon)">/d3 link</span> : Activeer D3.js Dataconstellatie.<br>
+                `);
+                break;
+            case '/sysmap': SysMap_Engine.toggle(); break;
+            case '/d3':
+                if (args[0] === 'link') { if (dc && dc.readyState === 'open') dc.send(JSON.stringify({ type: 'D3_TRIGGER', action: 'link' })); logToUI(`> <span style="color:var(--fc-155-heliocyan)">[D3 ANALYTICS]</span> Lijn-interpolatie gestart.`); }
+                break;
+            case '/thermal':
+                if (args[0] === 'on' || args[0] === 'off') { const state = args[0] === 'on'; if (dc && dc.readyState === 'open') dc.send(JSON.stringify({ type: 'D3_TRIGGER', action: 'thermal', state: state })); logToUI(`> <span style="color:var(--fc-108-yellow)">[D3 THERMAL]</span> Heatmap engine ${state ? 'GEACTIVEERD' : 'GEDEACTIVEERD'}.`); } 
+                else if (args[0] === 'color' && args[1]) { if (dc && dc.readyState === 'open') dc.send(JSON.stringify({ type: 'D3_TRIGGER', action: 'color', color: args[1] })); logToUI(`> Spectrum gewijzigd.`); }
+                break;
+            case '/deploy':
+                if (args.length < 4 || args[0] !== 'gateway') return; let newId = args[1].toLowerCase(); let newColor = args[2]; let newName = args.slice(3).join(' ');
+                GatewayDB.deploy(newId, newColor, newName); logToUI(`> <span style="color:var(--fc-161-green)">[DEPLOY SUCCES]</span> Gateway '${newName}' geconfigureerd.`);
+                break;
+            case '/destroy':
+                if (args.length < 2 || args[0] !== 'gateway') return;
+                if(GatewayDB.destroy(args[1].toLowerCase())) logToUI(`> <span style="color:var(--fc-134-crimson)">[DESTROY SUCCES]</span> Gateway verwijderd.`);
+                break;
+            case '/sources':
+                let dbList = `<span style="color:var(--fc-108-yellow); font-weight:bold;">=== LOCALDB ARCHIEVEN ===</span><br>`;
+                let dbs = GatewayDB.get(); for (const [key, val] of Object.entries(dbs)) { dbList += `<span style="color:${val.color}">[${key}]</span> ${val.naam}<br>`; }
+                logToUI(dbList); break;
+            case '/fetch':
+                if (args.length < 2) return; let bron = args[0].toLowerCase(); let term = args.slice(1).join(' ');
+                try {
+                    let extractedData = await Apigee_Gateway.executeLiveQuery(bron, term); let resFreq = GematriaEngine.getFrequency(GematriaEngine.calculate(term));
+                    triggerPututuResonance(resFreq);
+                    if (dc && dc.readyState === 'open') { let mappedData = VortexMapper.mapFieldData(extractedData.payload); mappedData.resonance = resFreq; dc.send(JSON.stringify(mappedData)); } 
+                    else { logToUI(`> [LOKAAL] Match: ${extractedData.payload.label}`); processIncomingData(JSON.stringify(VortexMapper.mapFieldData(extractedData.payload))); }
+                } catch (err) { logToUI(`> <span style="color:var(--fc-219-deepred)">[FOUT]</span> ${err.message}`); }
+                break;
+            case 'clear': case '/clear': document.getElementById('ai-terminal').innerHTML = `<span style="color:var(--fc-155-heliocyan)">> D3.JS ENGINE ONLINE...</span><br><br>`; break;
+            default: logToUI(`> Onbekend commando. Typ /help.`);
+        }
+    }
+
+    // --- ONTVANGER DATA PROCESSING ---
+    function processIncomingData(rawData) {
+        try {
+            const msg = JSON.parse(rawData);
+            if (msg.resonance) triggerPututuResonance(msg.resonance);
+            if (msg.type === 'NODE_SYNC') {
+                const node = msg.data; activeNodesList.push(node);
+                const markerHtml = `<div class="dyn-marker" style="background:var(--fc-100-black); border-color:${node.mapColor}; box-shadow: inset 0 0 5px ${node.mapColor}, 0 0 10px ${node.mapColor};">${node.initial || '!'}</div>`;
+                const icon = L.divIcon({ html: markerHtml, className: ''});
+                L.marker(node.coords, {icon}).addTo(extractionLayers).bindPopup(`<b>${node.title}</b>`).openPopup(); 
+                map.flyTo(node.coords, 5); logToUI(`> <span style="color:${node.mapColor}">[SYNC]</span> Intercept op HUD: ${node.title}`);
+                D3_Engine.updatePositions(); if(D3_Engine.thermalActive) D3_Engine.renderHeatmap();
+            }
+            else if (msg.type === 'D3_TRIGGER') {
+                if(msg.action === 'link') D3_Engine.drawConnections();
+                else if (msg.action === 'thermal') D3_Engine.toggleThermal(msg.state);
+                else if (msg.action === 'color') D3_Engine.setThermalColor(msg.color);
+            }
+        } catch(e) {}
+    }
+
+    // --- WEBRTC P2P NETWERK ---
+    async function processIceQueue() { while (iceQueue.length > 0) { try { await pc.addIceCandidate(new RTCIceCandidate(iceQueue.shift())); } catch(e) {} } }
+    function initNetwork() {
+        if (isConnecting) return; isConnecting = true; const btnId = currentRole === 'zender' ? 'btnNetwork' : 'btnNetworkRx';
+        document.getElementById(btnId).disabled = true; if (ws) ws.close(); if (pc) pc.close();
+        try { ws = new WebSocket("ws://127.0.0.1:1880/vortex"); } catch(e) { logToUI("> [FOUT] WebSocket mislukt.", true); isConnecting = false; document.getElementById(btnId).disabled = false; return; }
+        ws.onopen = () => { logToUI(`> WS Verbonden. INIT WebRTC...`); setupWebRTC(); ws.send(JSON.stringify({payload: {type: currentRole === 'ontvanger' ? 'peer_joined' : 'request_handshake', senderID: myID}})); };
+        ws.onerror = () => { logToUI("> [FOUT] Geen verbinding met Signal Server.", true); isConnecting = false; document.getElementById(btnId).disabled = false; };
+        ws.onmessage = async (e) => {
+            let d; try { const p = JSON.parse(e.data); d = p.payload || p; } catch(err) { return; }
+            if (d.senderID === myID || !pc) return;
+            try {
+                if (d.type === 'request_handshake' && currentRole === 'ontvanger') ws.send(JSON.stringify({payload: {type: 'peer_joined', senderID: myID}}));
+                else if (d.type === 'peer_joined' && currentRole === 'zender') { if (pc.signalingState !== 'stable') return; const o = await pc.createOffer(); await pc.setLocalDescription(o); ws.send(JSON.stringify({payload:{type:'offer', offer:o, senderID:myID}})); }
+                else if (d.type === 'offer' && currentRole === 'ontvanger') { if (pc.signalingState !== 'stable') return; await pc.setRemoteDescription(new RTCSessionDescription(d.offer)); const a = await pc.createAnswer(); await pc.setLocalDescription(a); ws.send(JSON.stringify({payload: {type:'answer', answer:a, senderID:myID}})); processIceQueue(); }
+                else if (d.type === 'answer' && currentRole === 'zender') { if (pc.signalingState === 'have-local-offer') { await pc.setRemoteDescription(new RTCSessionDescription(d.answer)); processIceQueue(); } }
+                else if (d.candidate) { if (pc.remoteDescription && pc.remoteDescription.type) pc.addIceCandidate(new RTCIceCandidate(d.candidate)).catch(e=>{}); else iceQueue.push(d.candidate); }
+            } catch(err) {}
+        };
+    }
+    function setupWebRTC() {
+        pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]});
+        pc.onicecandidate = e => { if(e.candidate) ws.send(JSON.stringify({payload:{candidate:e.candidate, senderID:myID}})); };
+        pc.onconnectionstatechange = () => {
+            if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') { logToUI("> [FOUT] P2P Verbroken.", true); isConnecting = false; document.getElementById('stat-p2p').classList.remove('active'); ['btnNetwork', 'btnNetworkRx'].forEach(id => { const b = document.getElementById(id); if(b) { b.disabled = false; b.innerText = "KOPPEL OMNI-BRIDGE"; b.style.color=""; }}); }
+        };
+        if(currentRole === 'zender') { dc = pc.createDataChannel("vortex_sync", { reliable: true }); attachDCEvents(); } 
+        else {
+            pc.ondatachannel = e => { 
+                dc = e.channel; dc.binaryType = "arraybuffer";
+                dc.onmessage = evt => {
+                    if (typeof evt.data === 'string') {
+                        const msg = JSON.parse(evt.data);
+                        if (msg.type === 'FILE_START') { receivedChunks = []; incomingFileInfo = msg; document.getElementById('rx-progress').style.display = 'block'; } 
+                        else if (msg.type === 'FILE_END') { const blob = new Blob(receivedChunks, { type: 'application/pdf' }); const url = URL.createObjectURL(blob); logToUI(`> <a href="${url}" download="${incomingFileInfo.name}" style="color:#fff">OPEN BESTAND</a>`); document.getElementById('rx-progress').style.display = 'none'; }
+                        else processIncomingData(evt.data);
+                    } else { receivedChunks.push(evt.data); let receivedSize = receivedChunks.reduce((acc, chunk) => acc + chunk.byteLength, 0); document.getElementById('rx-fill').style.width = (receivedSize / incomingFileInfo.size * 100) + '%'; }
+                };
+                logToUI(`> [SUCCES] DATAKANAAL OPEN!`); document.getElementById('stat-p2p').classList.add('active'); document.getElementById('btnNetworkRx').disabled = true; document.getElementById('btnNetworkRx').innerText = "BRUG ACTIEF"; document.getElementById('btnNetworkRx').style.color = "var(--fc-161-green)";
+            };
+        }
+    }
+    function attachDCEvents() {
+        const handleOpen = () => { logToUI(`> [SUCCES] DATAKANAAL OPEN!`); document.getElementById('stat-p2p').classList.add('active'); document.getElementById('btnNetwork').disabled = true; document.getElementById('btnNetwork').innerText = "BRUG ACTIEF"; document.getElementById('btnNetwork').style.color = "var(--fc-161-green)"; };
+        if (dc.readyState === 'open') handleOpen(); else dc.onopen = handleOpen;
+    }
+</script>
+</body>
+</html>
