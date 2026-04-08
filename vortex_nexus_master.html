@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX v121.0.0 // ULTRASONIC EDGE & NLP CORE</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+    <style>
+        :root {
+            /* --- FABER-CASTELL TACTICAL PALETTE --- */
+            --fc-100-black: #050508;          
+            --fc-155-heliocyan: #00a9e0;      
+            --fc-108-yellow: #ffb200;         
+            --fc-134-crimson: #b31e34;        
+            --fc-219-deepred: #d92534;        
+            --fc-161-green: #00b57e;          
+            --panel-bg: #0a0a0d; 
+            --border-color: #222;
+            --text-main: #e0e0e0; 
+            --font-mono: 'Courier New', Courier, monospace;
+            --els-neon: #ff00ff; 
+            --edge-orange: #ff6600;
+            --nlp-pink: #ff007f;
+        }
+
+        body, html { background-color: var(--fc-100-black); color: var(--text-main); font-family: var(--font-mono); margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        header { flex: 0 0 60px; height: 60px; background: linear-gradient(180deg, #050508 0%, #0a0a0d 100%); border-bottom: 1px solid var(--border-color); padding: 0 25px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; box-sizing: border-box; }
+        .title { color: #fff; font-size: 1.4em; font-weight: bold; letter-spacing: 2px; }
+        .version-tag { font-size: 0.45em; background: #333; color: #fff; padding: 2px 6px; border-radius: 2px; margin-left: 10px; vertical-align: middle; }
+        .status-container { display:flex; gap:30px; }
+        .status-item { display: flex; align-items: center; gap: 8px; color: #666; font-size: 0.7em; letter-spacing: 2px; transition: 0.3s; }
+        .status-item.active { color: var(--fc-161-green); text-shadow: 0 0 10px var(--fc-161-green); }
+        .status-item.gateway { color: #a442f5; text-shadow: 0 0 10px #a442f5; }
+        .status-item.edge { color: var(--edge-orange); text-shadow: 0 0 10px var(--edge-orange); }
+
+        .view-container { display: none; grid-template-columns: 450px 1fr; width: 100%; height: calc(100vh - 60px); overflow: hidden; }
+        .sidebar { background: var(--panel-bg); border-right: 1px solid var(--border-color); padding: 15px; box-sizing: border-box; height: 100%; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+        .scroll-box { flex-grow: 1; min-height: 0; overflow-y: auto; padding-right: 10px; scrollbar-width: thin; }
+        .scroll-box::-webkit-scrollbar { width: 6px; } .scroll-box::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+        .fixed-element { flex-shrink: 0; }
+
+        .ai-terminal, .rx-log { background: #000; border: 1px solid #333; padding: 10px; font-size: 0.8em; line-height: 1.4; color: var(--text-main); word-wrap: break-word; overflow-y: auto; height: 100%;}
+        .rx-map-container { background: #000; height: 100%; width: 100%; overflow: hidden; position: relative; }
+        #geoMap { width: 100%; height: 100%; }
+
+        .data-block { background: #0d0d12; border: 1px solid #222; border-radius: 4px; padding: 12px; position: relative; cursor: pointer; transition: all 0.2s ease; margin-bottom: 12px; }
+        .data-block:hover { background: #15151c; border-color: #444; }
+        .data-block.selected { background: #111; border-color: #666; box-shadow: 0 0 10px rgba(255,255,255,0.05); }
+        .data-title { color: #fff; font-size: 0.9em; text-transform: uppercase; font-weight: bold; margin-bottom: 6px; letter-spacing: 1px; }
+        .data-desc { color: #aaa; font-size: 0.75em; line-height: 1.4; margin-bottom: 10px; }
+        
+        .tool-tags-container { display: flex; flex-wrap: wrap; gap: 6px; }
+        .tool-tag { display: inline-block; font-size: 0.7em; padding: 3px 8px; border-radius: 3px; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); background: #333; }
+        .tag-green { background: var(--fc-161-green); } .tag-yellow { background: var(--fc-108-yellow); color: #000; text-shadow: none; }
+        .tag-purple { background: #a442f5; } .tag-edge { background: var(--edge-orange); color: #000; text-shadow: none;}
+        .tag-nlp { background: var(--nlp-pink); color: #fff; }
+
+        button { background: #111; border: 1px solid #444; color: #eee; padding: 12px; cursor: pointer; width: 100%; font-weight: bold; text-transform: uppercase; font-family: inherit; transition: 0.2s; letter-spacing: 1px; border-radius: 2px; }
+        button:hover:not(:disabled) { background: #222; border-color: #666; }
+        button.btn-send { background: #eee; color: #000; border-color: #fff; } button.btn-send:hover:not(:disabled) { background: #fff; }
+        button.btn-ping { background: var(--edge-orange); color: #000; border-color: var(--edge-orange); } button.btn-ping:hover:not(:disabled) { background: #fff; }
+        button:disabled { opacity: 0.3; cursor: not-allowed; border-color: #333; background: transparent; }
+        
+        .ai-input-area { display: flex; gap: 10px; margin-top: 10px; }
+        .ai-input-area input { flex-grow: 1; background: #000; border: 1px solid #444; color: #fff; padding: 10px; font-family: var(--font-mono); outline: none; border-radius: 2px; }
+        .ai-input-area input:focus { border-color: var(--fc-155-heliocyan); }
+        
+        #role-selector { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,5,8,0.98); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; }
+
+        /* NLP Overlay */
+        #nlp-overlay { display: none; position: absolute; top: 60px; left: 0; width: 100%; height: calc(100% - 60px); background: rgba(5,5,8,0.98); z-index: 2500; flex-direction: column; padding: 25px; box-sizing: border-box; }
+        #nlp-search { padding: 15px; background: #000; border: 1px solid var(--nlp-pink); color: #fff; font-family: inherit; font-size: 1.1em; outline: none; border-radius: 2px; width: 100%; box-sizing: border-box; margin-bottom: 20px; }
+        #nlp-results { display: flex; flex-wrap: wrap; gap: 15px; overflow-y: auto; align-content: flex-start; padding-bottom: 50px; }
+        .nlp-card { background: #0a0a0d; border: 1px solid #333; border-left: 4px solid var(--nlp-pink); padding: 15px; width: calc(50% - 10px); box-sizing: border-box; transition: 0.2s; }
+        .nlp-card:hover { background: #111; border-color: #555; }
+        .nlp-label { color: #666; font-size: 0.75em; margin-bottom: 5px; letter-spacing: 1px; }
+        .nlp-text { color: #e0e0e0; font-size: 0.95em; margin-bottom: 15px; line-height: 1.4; }
+        .nlp-match { color: var(--fc-155-heliocyan); font-size: 0.95em; line-height: 1.4; }
+
+        /* Overige */
+        .dyn-marker { width: 18px; height: 18px; border-radius: 3px; border: 2px solid #fff; box-shadow: 0 0 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size:10px; color:#fff;}
+        @keyframes ultraPulse { 0% { box-shadow: 0 0 0 0 rgba(255, 102, 0, 0.8); } 70% { box-shadow: 0 0 0 50px rgba(255, 102, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 102, 0, 0); } }
+        .screen-flash { position: absolute; top:0; left:0; width:100vw; height:100vh; background: var(--edge-orange); opacity: 0; pointer-events: none; z-index: 9000; transition: opacity 0.1s; }
+        .screen-flash.active { opacity: 0.3; animation: ultraPulse 0.5s ease-out; }
+    </style>
+</head>
+<body>
+
+<div id="screen-flash" class="screen-flash"></div>
+
+<div id="nlp-overlay">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; padding-bottom:15px; margin-bottom:20px;">
+        <h2 style="margin:0; color:var(--nlp-pink); letter-spacing: 2px;">VORTEX_BRAIN // SEMANTIC NLP MATRIX</h2>
+        <button onclick="NLP_Engine.toggle()" style="width:auto; padding:8px 15px;">[ X ] SLUITEN</button>
+    </div>
+    <input type="text" id="nlp-search" placeholder="> Doorzoek de cognitieve buffer op intentie, woorden of patronen..." oninput="NLP_Engine.filter()">
+    <div style="color:#aaa; font-size:0.8em; margin-bottom:10px;" id="nlp-count">Status: Buffer geladen.</div>
+    <div id="nlp-results"></div>
+</div>
+
+<div id="role-selector">
+    <div style="color:#fff; font-size:2em; margin-bottom:20px; font-weight: bold; letter-spacing: 5px;">VORTEX C2 NEXUS</div>
+    <div style="color:#aaa; font-size:1em; margin-bottom:40px;">ASYMMETRIC EDGE COMPUTE & NLP PROTOCOL</div>
+    <button class="role-btn" style="width: 400px; padding: 25px;" onclick="initRole('zender')">LINUX CORE (ZENDER)</button>
+    <button class="role-btn receiver" style="width: 400px; padding: 25px;" onclick="initRole('ontvanger')">MOBILE EDGE (ONTVANGER)</button>
+</div>
+
+<header>
+    <div class="header-left"><div class="title">VORTEX C2 NEXUS <span class="version-tag">v121.0.0 (NLP_EDGE_CORE)</span></div></div>
+    <div class="header-right" style="display:flex; align-items:center; gap: 20px;">
+        <div class="status-container">
+            <div id="stat-p2p" class="status-item">● OMNI_BRIDGE</div>
+            <div id="stat-edge" class="status-item edge">● EDGE_MIC_IDLE</div>
+        </div>
+        <span id="role-badge" style="font-size:0.7em; color:#aaa; border: 1px solid #444; padding: 4px;">WACHTEN OP ROL</span>
+    </div>
+</header>
+
+<main id="zender-view" class="view-container">
+    <div class="sidebar">
+        <button id="btnNetwork" class="fixed-element" onclick="initNetwork()">1. KOPPEL OMNI-BRIDGE (P2P)</button>
+        <button id="btnPingload" class="btn-ping fixed-element" style="margin-top:10px;" onclick="fireUltrasonicPingload()">2. VUUR ULTRASONE PINGLOAD (18.5kHz)</button>
+        
+        <div class="fixed-element" style="color:#888; font-size:0.8em; border-bottom:1px solid #222; padding-bottom:5px; margin-top:20px;">HEAVY COMPUTE NODES</div>
+        <div class="scroll-box" id="node-container">
+            <div class="data-block" id="node-nlp" onclick="selectNode('nlp'); NLP_Engine.toggle();">
+                <div class="data-title">AI // SEMANTIC MATRIX</div>
+                <div class="data-desc">Taalverwerking en Intentie-analyse Database.</div>
+                <div class="tool-tags-container"><span class="tool-tag tag-nlp">NLP Paraphrase</span><span class="tool-tag tag-nlp">Machine Learning</span></div>
+            </div>
+            <div class="data-block" id="node-gateway" onclick="selectNode('gateway')">
+                <div class="data-title">CORE // ALGORITHM ENGINE</div>
+                <div class="data-desc">Linux Desktop Compute Node. Berekent de 52-bit matrix.</div>
+                <div class="tool-tags-container"><span class="tool-tag tag-purple">Heavy Compute</span></div>
+            </div>
+            <div class="data-block" id="node-edge" onclick="selectNode('edge')">
+                <div class="data-title">EDGE // ULTRASONIC SENSOR</div>
+                <div class="data-desc">Mobile Haptics & 18.5kHz WebAudio Target.</div>
+                <div class="tool-tags-container"><span class="tool-tag tag-edge">18500 Hz</span><span class="tool-tag tag-edge">Haptics</span></div>
+            </div>
+        </div>
+        
+        <button id="btnSendNode" class="btn-send fixed-element" onclick="sendNodeData()" disabled>SYNC DATA VIA WEBRTC</button>
+    </div>
+    
+    <div class="sidebar" style="background:#020202; border:none; display:flex; flex-direction:column;">
+        <div class="scroll-box ai-terminal" id="ai-terminal">
+            <span style="color:var(--fc-155-heliocyan)">> ASYMMETRISCHE CORE & NLP ENGINE GELADEN.</span><br>
+            > Wachten op mobiele edge sensor...<br>
+            > Typ <span style="color:var(--nlp-pink)">'/nlp'</span> om de Semantic Matrix te openen.<br>
+            > Typ <span style="color:var(--edge-orange)">'/pingload'</span> om ultrasone verificatie te zenden.<br><br>
+        </div>
+        <div class="ai-input-area fixed-element">
+            <input type="text" id="ai-input" placeholder="CORE_AI> Voer commando in..." onkeypress="if(event.key === 'Enter') processTerminal()">
+            <button onclick="processTerminal()" style="width:120px;">UITVOEREN</button>
+        </div>
+    </div>
+</main>
+
+<main id="ontvanger-view" class="view-container">
+    <div class="sidebar">
+        <button id="btnNetworkRx" class="fixed-element" onclick="initNetwork()">1. KOPPEL OMNI-BRIDGE</button>
+        <button id="btnMic" class="btn-ping fixed-element" style="margin-top:10px;" onclick="initEdgeMicrophone()">2. ACTIVEER EDGE SENSOR (MIC)</button>
+        
+        <div class="fixed-element" style="color:#aaa; font-size:0.8em; font-weight:bold; letter-spacing:1px; border-bottom:1px solid #222; padding-bottom:5px; margin-top:20px;">SENSOR LOGBOEK</div>
+        <div class="scroll-box rx-log" id="rx-log">> EDGE SENSOR ONLINE. Wachten op verbinding...<br></div>
+    </div>
+    <div class="rx-map-container">
+        <div id="geoMap"></div>
+    </div>
+</main>
+
+<script>
+    // --- GLOBALS & WEBRTC ---
+    const myID = "VTX-" + Math.random().toString(36).substr(2, 5).toUpperCase();
+    let ws, pc, dc, currentRole = null, selectedNodeId = null;
+    let map = null, audioCtx = null;
+    let extractionLayers = L.layerGroup();
+    let iceQueue = []; let isConnecting = false;
+
+    // --- NLP SEMANTIC ENGINE ---
+    const NLP_Engine = {
+        data: [
+            { q1: "Why are questions on Quora so stupid?", q2: "Why are my questions on Quora so stupid?" },
+            { q1: "Do running increase your height?", q2: "Can skipping increase my height?" },
+            { q1: "Is a PhD in chemistry worth pursuing?", q2: "Is pursuing a chemistry PhD worth it? Why or why not?" },
+            { q1: "How can I get rid of acne and its effect?", q2: "How do I get rid of pimples on my face?" },
+            { q1: "Is time travel to 2010 possible?", q2: "Is time travel possible then after how long time?" },
+            { q1: "Who is the most badass footballer ever?", q2: "Who is the most badass footballer ever? Why?" },
+            { q1: "What are things which I can export from india?", q2: "What is the best thing to export from India?" },
+            { q1: "What you have learned from life so far?", q2: "What lessons have you learned from life?" },
+            { q1: "I lost my password with my Gmail account. How do I reset it?", q2: "How can I reset my Gmail password when I don't remember my recovery info?" },
+            { q1: "How can I speak English fluently and fast?", q2: "How do I speak English like celebrities?" },
+            { q1: "What are the best ways to lose weight fast?", q2: "How do I lose weight in a short time?" },
+            { q1: "How can I ignore someone?", q2: "What is the best way to ignore someone?" },
+            { q1: "Who will win the election in united states?", q2: "Who will win American Election in 2016?" },
+            { q1: "What are some examples of controversial topics in special education?", q2: "What are some controversial issues in special education?" },
+            { q1: "Can I do an MBA after BE?", q2: "Can we do MBA after b.e?" }
+        ],
+        toggle: () => {
+            const el = document.getElementById('nlp-overlay');
+            if(el.style.display === 'flex') {
+                el.style.display = 'none';
+            } else {
+                el.style.display = 'flex';
+                NLP_Engine.filter();
+            }
+        },
+        filter: () => {
+            const term = document.getElementById('nlp-search').value.toLowerCase();
+            const container = document.getElementById('nlp-results');
+            container.innerHTML = '';
+            let count = 0;
+            NLP_Engine.data.forEach(pair => {
+                if(pair.q1.toLowerCase().includes(term) || pair.q2.toLowerCase().includes(term)) {
+                    count++;
+                    container.innerHTML += `
+                    <div class="nlp-card">
+                        <div class="nlp-label">> TARGET_QUERY_A</div>
+                        <div class="nlp-text">${pair.q1}</div>
+                        <div class="nlp-label" style="color:var(--fc-161-green);">> PARAPHRASE_MATCH_B</div>
+                        <div class="nlp-match">${pair.q2}</div>
+                    </div>`;
+                }
+            });
+            document.getElementById('nlp-count').innerText = `Status: ${count} semantische matches in buffer.`;
+        }
+    };
+
+    // --- ULTRASONIC EDGE COMPUTING VARIABLES ---
+    const ULTRASONIC_FREQ = 18500; // 18.5 kHz
+    let analyser, microphone, dataArray, bufferLength;
+    let isListening = false;
+    let lastPingTime = 0;
+
+    // --- UI INITS ---
+    function logToUI(msg, isError = false) {
+        const el = document.getElementById(currentRole === 'zender' ? 'ai-terminal' : 'rx-log');
+        if(el) { const div = document.createElement('div'); div.style.marginTop = "5px"; if(isError) div.style.color = "var(--fc-219-deepred)"; div.innerHTML = msg; el.appendChild(div); el.scrollTop = el.scrollHeight; }
+    }
+
+    function initRole(role) {
+        currentRole = role; document.getElementById('role-selector').style.display = 'none';
+        
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+
+        if (role === 'zender') { 
+            document.getElementById('zender-view').style.display = 'grid'; 
+            document.getElementById('role-badge').innerText = "ROLE: LINUX CORE"; 
+        } else { 
+            document.getElementById('ontvanger-view').style.display = 'grid'; 
+            document.getElementById('role-badge').innerText = "ROLE: MOBILE EDGE"; 
+            initMap(); 
+        }
+    }
+
+    function initMap() {
+        const dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© CartoDB' });
+        map = L.map('geoMap', { zoomControl: false, layers: [dark] }).setView([52.0, 5.0], 5);
+        extractionLayers.addTo(map);
+    }
+
+    // --- ZENDER: FIRE ULTRASONIC PINGLOAD ---
+    function fireUltrasonicPingload() {
+        if(!audioCtx) return;
+        logToUI(`> <span style="color:var(--edge-orange)">[CORE] VUURT 18.5kHz PINGLOAD AF...</span>`);
+        
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(ULTRASONIC_FREQ, audioCtx.currentTime);
+        
+        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+        
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.35);
+
+        if (dc && dc.readyState === 'open') {
+            dc.send(JSON.stringify({ type: 'PINGLOAD_SENT', freq: ULTRASONIC_FREQ }));
+        }
+    }
+
+    function processTerminal() {
+        let inputField = document.getElementById('ai-input'); let query = inputField.value.trim(); inputField.value = ""; if(!query) return;
+        logToUI(`> <span style="color:#aaa;">CORE> ${query}</span>`);
+        
+        if (query.toLowerCase() === '/pingload') fireUltrasonicPingload();
+        else if (query.toLowerCase() === '/nlp') NLP_Engine.toggle();
+        else logToUI("> Commando niet herkend. Probeer /pingload of /nlp.");
+    }
+
+    // --- ONTVANGER: EDGE SENSOR LISTENER ---
+    async function initEdgeMicrophone() {
+        if(!audioCtx) return;
+        const btn = document.getElementById('btnMic');
+        
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            microphone = audioCtx.createMediaStreamSource(stream);
+            
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 2048; 
+            bufferLength = analyser.frequencyBinCount;
+            dataArray = new Uint8Array(bufferLength);
+            
+            microphone.connect(analyser);
+            isListening = true;
+            
+            btn.innerText = "EDGE MIC ACTIEF";
+            btn.style.background = "var(--fc-161-green)";
+            btn.style.color = "#000";
+            document.getElementById('stat-edge').innerText = "● EDGE_MIC_ACTIVE";
+            document.getElementById('stat-edge').style.color = "var(--fc-161-green)";
+            document.getElementById('stat-edge').style.textShadow = "0 0 10px var(--fc-161-green)";
+            
+            logToUI(`> <span style="color:var(--fc-161-green)">[SENSOR] Microfoon toegewezen. Analyser luistert naar de 18.5kHz band...</span>`);
+            
+            listenLoop();
+        } catch (err) {
+            logToUI(`> [FOUT] Microfoon toegang geweigerd: ${err.message}`, true);
+        }
+    }
+
+    function listenLoop() {
+        if (!isListening) return;
+        requestAnimationFrame(listenLoop);
+        
+        analyser.getByteFrequencyData(dataArray);
+        
+        const nyquist = audioCtx.sampleRate / 2;
+        const targetBin = Math.round((ULTRASONIC_FREQ / nyquist) * bufferLength);
+        
+        let energy = 0;
+        for(let i = targetBin - 2; i <= targetBin + 2; i++) {
+            if(dataArray[i]) energy += dataArray[i];
+        }
+        
+        if (energy > 200 && (audioCtx.currentTime - lastPingTime > 1.0)) {
+            lastPingTime = audioCtx.currentTime;
+            triggerEdgeResponse();
+        }
+    }
+
+    function triggerEdgeResponse() {
+        logToUI(`> <span style="color:var(--edge-orange); font-weight:bold;">[ULTRASONIC DETECTED] 18.5 kHz Pingload ontvangen via lucht (Mic)!</span>`);
+        
+        if (navigator.vibrate) {
+            navigator.vibrate([100, 50, 100]); 
+            logToUI(`> <span style="color:#aaa;">[HAPTICS] Trilsignaal uitgevoerd.</span>`);
+        }
+
+        const flash = document.getElementById('screen-flash');
+        flash.classList.remove('active');
+        void flash.offsetWidth;
+        flash.classList.add('active');
+
+        const lat = 52.0 + (Math.random() * 2 - 1);
+        const lon = 5.0 + (Math.random() * 2 - 1);
+        
+        const markerHtml = `<div class="dyn-marker" style="background:var(--fc-100-black); border-color:var(--edge-orange); box-shadow: inset 0 0 5px var(--edge-orange), 0 0 15px var(--edge-orange);">⚡</div>`;
+        const icon = L.divIcon({ html: markerHtml, className: ''});
+        L.marker([lat, lon], {icon}).addTo(extractionLayers).bindPopup(`<b>Pingload Intercept</b><br>Freq: 18.5 kHz`).openPopup(); 
+        map.flyTo([lat, lon], 7);
+    }
+
+    // --- STANDAARD P2P NETWERK LOGICA ---
+    const softwareNodes = { 
+        'gateway': { title: "LINUX CORE", coords: [52.3, 4.9], mapColor: "#a442f5" }, 
+        'edge': { title: "MOBILE EDGE", coords: [51.5, 5.5], mapColor: "#ff6600" },
+        'nlp': { title: "SEMANTIC MATRIX", coords: [52.1, 5.2], mapColor: "#ff007f" }
+    };
+
+    function selectNode(id) {
+        selectedNodeId = id; document.querySelectorAll('.data-block').forEach(b => b.classList.remove('selected')); document.getElementById('node-' + id).classList.add('selected');
+        if(dc && dc.readyState === 'open') document.getElementById('btnSendNode').disabled = false;
+    }
+    
+    function sendNodeData() {
+        if(!selectedNodeId || !dc) return; 
+        dc.send(JSON.stringify({ type: 'NODE_SYNC', data: softwareNodes[selectedNodeId] })); 
+        logToUI(`> [TX] Node data gesynct via WebRTC.`);
+    }
+
+    function processIncomingData(rawData) {
+        try {
+            const msg = JSON.parse(rawData);
+            if (msg.type === 'NODE_SYNC') {
+                const node = msg.data;
+                const markerHtml = `<div class="dyn-marker" style="background:var(--fc-100-black); border-color:${node.mapColor}; box-shadow: inset 0 0 5px ${node.mapColor}, 0 0 10px ${node.mapColor};">N</div>`;
+                const icon = L.divIcon({ html: markerHtml, className: ''});
+                L.marker(node.coords, {icon}).addTo(extractionLayers).bindPopup(`<b>${node.title}</b>`).openPopup(); 
+                map.flyTo(node.coords, 6); 
+                logToUI(`> <span style="color:${node.mapColor}">[WEBRTC SYNC]</span> Data ontvangen: ${node.title}`);
+            }
+            if (msg.type === 'PINGLOAD_SENT') {
+                logToUI(`> <span style="color:#aaa;">[WEBRTC] Zender meldt afvuren van ${msg.freq}Hz pingload... (Luister met mic)</span>`);
+            }
+        } catch(e) {}
+    }
+
+    async function processIceQueue() { while (iceQueue.length > 0) { try { await pc.addIceCandidate(new RTCIceCandidate(iceQueue.shift())); } catch(e) {} } }
+    
+    function initNetwork() {
+        if (isConnecting) return; isConnecting = true; const btnId = currentRole === 'zender' ? 'btnNetwork' : 'btnNetworkRx';
+        document.getElementById(btnId).disabled = true; if (ws) ws.close(); if (pc) pc.close();
+        try { ws = new WebSocket("ws://127.0.0.1:1880/vortex"); } catch(e) { logToUI("> [FOUT] WebSocket mislukt.", true); isConnecting = false; document.getElementById(btnId).disabled = false; return; }
+        ws.onopen = () => { logToUI(`> WS Verbonden. INIT WebRTC...`); setupWebRTC(); ws.send(JSON.stringify({payload: {type: currentRole === 'ontvanger' ? 'peer_joined' : 'request_handshake', senderID: myID}})); };
+        ws.onerror = () => { logToUI("> [FOUT] Geen signal server (gebruik lokaal zonder netwerk).", true); isConnecting = false; document.getElementById(btnId).disabled = false; };
+        ws.onmessage = async (e) => {
+            let d; try { const p = JSON.parse(e.data); d = p.payload || p; } catch(err) { return; }
+            if (d.senderID === myID || !pc) return;
+            try {
+                if (d.type === 'request_handshake' && currentRole === 'ontvanger') ws.send(JSON.stringify({payload: {type: 'peer_joined', senderID: myID}}));
+                else if (d.type === 'peer_joined' && currentRole === 'zender') { if (pc.signalingState !== 'stable') return; const o = await pc.createOffer(); await pc.setLocalDescription(o); ws.send(JSON.stringify({payload:{type:'offer', offer:o, senderID:myID}})); }
+                else if (d.type === 'offer' && currentRole === 'ontvanger') { if (pc.signalingState !== 'stable') return; await pc.setRemoteDescription(new RTCSessionDescription(d.offer)); const a = await pc.createAnswer(); await pc.setLocalDescription(a); ws.send(JSON.stringify({payload: {type:'answer', answer:a, senderID:myID}})); processIceQueue(); }
+                else if (d.type === 'answer' && currentRole === 'zender') { if (pc.signalingState === 'have-local-offer') { await pc.setRemoteDescription(new RTCSessionDescription(d.answer)); processIceQueue(); } }
+                else if (d.candidate) { if (pc.remoteDescription && pc.remoteDescription.type) pc.addIceCandidate(new RTCIceCandidate(d.candidate)).catch(e=>{}); else iceQueue.push(d.candidate); }
+            } catch(err) {}
+        };
+    }
+    
+    function setupWebRTC() {
+        pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]});
+        pc.onicecandidate = e => { if(e.candidate) ws.send(JSON.stringify({payload:{candidate:e.candidate, senderID:myID}})); };
+        if(currentRole === 'zender') { dc = pc.createDataChannel("vortex_sync", { reliable: true }); attachDCEvents(); } 
+        else {
+            pc.ondatachannel = e => { 
+                dc = e.channel; dc.binaryType = "arraybuffer";
+                dc.onmessage = evt => {
+                    if (typeof evt.data === 'string') processIncomingData(evt.data);
+                };
+                logToUI(`> [SUCCES] DATAKANAAL OPEN!`); document.getElementById('stat-p2p').classList.add('active');
+                document.getElementById('btnNetworkRx').disabled = true; document.getElementById('btnNetworkRx').innerText = "BRUG ACTIEF"; document.getElementById('btnNetworkRx').style.color = "var(--fc-161-green)";
+            };
+        }
+    }
+    
+    function attachDCEvents() {
+        const handleOpen = () => { logToUI(`> [SUCCES] P2P DATAKANAAL OPEN!`); document.getElementById('stat-p2p').classList.add('active'); document.getElementById('btnNetwork').disabled = true; document.getElementById('btnNetwork').innerText = "BRUG ACTIEF"; document.getElementById('btnNetwork').style.color = "var(--fc-161-green)"; };
+        if (dc.readyState === 'open') handleOpen(); else dc.onopen = handleOpen;
+    }
+</script>
+</body>
+</html>
