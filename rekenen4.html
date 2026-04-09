@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>VORTEX M_52 | 52-BIT MERSENNE ENGINE</title>
+    <style>
+        :root { --neon: #00ff41; --bg: #030303; --panel: rgba(0, 20, 0, 0.95); }
+        body { background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; overflow: hidden; }
+        .interface { border: 2px solid var(--neon); padding: 25px; background: var(--panel); box-shadow: 0 0 60px rgba(0, 255, 65, 0.2); width: 850px; }
+        .header { display: flex; justify-content: space-between; border-bottom: 1px double var(--neon); margin-bottom: 20px; padding-bottom: 10px; }
+        .hud-top { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; font-size: 0.75rem; }
+        .box { border: 1px solid #004400; padding: 10px; background: #000; }
+        .binary-display { font-size: 0.7rem; color: #008800; word-break: break-all; height: 35px; border: 1px solid #002200; padding: 5px; margin: 10px 0; }
+        canvas { display: block; margin: 0 auto; background: radial-gradient(circle, #001500 0%, #000 100%); border: 1px solid #003300; }
+        .btn { background: #000; color: var(--neon); border: 1px solid var(--neon); padding: 15px; width: 100%; cursor: pointer; font-weight: bold; letter-spacing: 4px; transition: 0.4s; }
+        .btn:hover { background: var(--neon); color: #000; box-shadow: 0 0 30px var(--neon); }
+        .active-trigger { color: #fff; text-shadow: 0 0 10px var(--neon); animation: blink 0.5s infinite; }
+        @keyframes blink { 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+
+<div class="interface">
+    <div class="header">
+        <span>VORTEX_C2_NEXUS</span>
+        <span>MODUS: M_52_HYPER_RES</span>
+        <span>2026-04-09</span>
+    </div>
+    
+    <div class="hud-top">
+        <div class="box">BIT_DEPTH: <span class="highlight">52-BIT</span><br>EXPONENT: <span id="expDisplay" class="active-trigger">-</span></div>
+        <div class="box">MERSENNE: <span id="mValDisplay">2^n - 1</span><br>HAMMING: <span id="hamDisplay">0</span></div>
+        <div class="box">FREQ: <span id="freqDisplay">110.000</span> Hz<br>STATUS: <span id="status">IDLE</span></div>
+    </div>
+
+    <div class="binary-display" id="binDisplay">0000000000000000000000000000000000000000000000000000</div>
+
+    <canvas id="vortexCanvas" width="600" height="400"></canvas>
+
+    <button class="btn" onclick="startM52()" id="mainBtn">ACTIVATE M_52 SEQUENCE</button>
+</div>
+
+<script>
+    const canvas = document.getElementById('vortexCanvas');
+    const ctx = canvas.getContext('2d');
+    const M_EXPONENTS = [2, 3, 5, 7, 13, 17, 19, 31, 61, 89, 107, 127, 521, 607, 1279];
+    
+    let stepIndex = 0;
+    let running = false;
+    let audioCtx, osc, timer;
+
+    function getGray52(n) {
+        // Simulatie van 52-bit Gray-code voor de huidige exponent-stap
+        return BigInt(n) ^ (BigInt(n) >> 1n);
+    }
+
+    function draw() {
+        if (!running) return;
+
+        const p = M_EXPONENTS[stepIndex];
+        const gray = getGray52(p);
+        const grayStr = gray.toString(2).padStart(52, '0');
+        const hamming = (grayStr.match(/1/g) || []).length;
+        const freq = 110 * Math.pow(2, p / 127); // Harmonische mapping gebaseerd op M_7
+
+        // UI Updates
+        document.getElementById('expDisplay').textContent = `M_${p}`;
+        document.getElementById('hamDisplay').textContent = hamming;
+        document.getElementById('freqDisplay').textContent = freq.toFixed(3);
+        document.getElementById('binDisplay').textContent = grayStr;
+
+        if (osc) osc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
+
+        // Geometrie Rendering
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const cx = 300, cy = 200;
+        const N = 181; // Tantalum Mass Resonance Constante
+        const M = 16.5 + (p / 100);
+
+        ctx.lineWidth = 0.7;
+        ctx.beginPath();
+        for (let i = 0; i < N; i++) {
+            const a1 = (i * 2 * Math.PI) / N;
+            const x1 = cx + 180 * Math.cos(a1);
+            const y1 = cy + 180 * Math.sin(a1);
+
+            const dest = (i * M) % N;
+            const a2 = (dest * 2 * Math.PI) / N;
+            const x2 = cx + 180 * Math.cos(a2);
+            const y2 = cy + 180 * Math.sin(a2);
+
+            ctx.strokeStyle = `rgba(0, 255, 65, ${0.1 + (hamming / 20)})`;
+            ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+        }
+        ctx.stroke();
+
+        stepIndex = (stepIndex + 1) % M_EXPONENTS.length;
+        timer = setTimeout(draw, 800); // Mersenne-stappen hebben tijd nodig om te resoneren
+    }
+
+    function startM52() {
+        if (!audioCtx) {
+            audioCtx = new AudioContext();
+            osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth'; // Rijkere harmonischen voor M_52
+            gain.gain.value = 0.05;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+        }
+        running = !running;
+        document.getElementById('status').textContent = running ? "RESONATING" : "STASIS";
+        if (running) { audioCtx.resume(); draw(); }
+        else clearTimeout(timer);
+    }
+</script>
+
+</body>
+</html>

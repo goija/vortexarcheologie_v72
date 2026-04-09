@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX MODULAIRE GEOMETRIE</title>
+    <style>
+        /* VORTEX C2 NEXUS Terminal Esthetiek */
+        body {
+            background-color: #030303;
+            color: #00ff00;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .vortex-container {
+            border: 1px solid #00ff00;
+            padding: 20px 30px;
+            background: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.1);
+            width: 600px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.2rem;
+            letter-spacing: 3px;
+            border-bottom: 1px dashed #005500;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
+        label {
+            width: 180px;
+        }
+
+        /* Retro sliders */
+        input[type=range] {
+            flex-grow: 1;
+            margin: 0 15px;
+            -webkit-appearance: none;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: #00aa00;
+            border-radius: 2px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #ccc;
+            margin-top: -6px;
+            cursor: pointer;
+            box-shadow: 0 0 5px #fff;
+        }
+
+        .val-display {
+            width: 60px;
+            text-align: center;
+            border: 1px solid #00ff00;
+            padding: 4px;
+            background-color: #001100;
+        }
+
+        /* Geometrie Canvas */
+        .canvas-container {
+            border: 1px solid #003300;
+            padding: 10px;
+            margin-top: 30px;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #000;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="vortex-container">
+        <h1>[ VORTEX MODULAIRE GEOMETRIE ]</h1>
+        
+        <div class="control-group">
+            <label>Modulus (Punten):</label>
+            <input type="range" id="modulus" min="10" max="600" value="281" step="1">
+            <span class="val-display" id="modVal">281</span>
+        </div>
+        
+        <div class="control-group">
+            <label>Vermenigvuldiger:</label>
+            <input type="range" id="multiplier" min="2" max="100" value="16.33" step="0.01">
+            <span class="val-display" id="multVal">16.33</span>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="vortexCanvas" width="500" height="500"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('vortexCanvas');
+        const ctx = canvas.getContext('2d');
+        const modSlider = document.getElementById('modulus');
+        const multSlider = document.getElementById('multiplier');
+        const modVal = document.getElementById('modVal');
+        const multVal = document.getElementById('multVal');
+
+        // De visuele generator voor de modulaire lijnen
+        function drawVortex() {
+            const N = parseFloat(modSlider.value);
+            const M = parseFloat(multSlider.value);
+            
+            // Update de UI tekst
+            modVal.textContent = N;
+            multVal.textContent = M.toFixed(2);
+
+            // Wis het canvas voor de nieuwe iteratie
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const R = (canvas.width / 2) - 10; // Radius met kleine marge
+
+            // Tekeninstellingen (Felgroene Matrix-lijn stijl)
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.35)'; // Lichte transparantie voor de overlappende draden
+            ctx.lineWidth = 1;
+
+            ctx.beginPath();
+            
+            // De Euclidische motor: bereken elk pad
+            for (let i = 0; i < N; i++) {
+                // Positie van vertrekpunt (i) op de cirkel
+                const angle1 = (i * 2 * Math.PI) / N - (Math.PI / 2);
+                const x1 = cx + R * Math.cos(angle1);
+                const y1 = cy + R * Math.sin(angle1);
+
+                // Positie van bestemmingspunt: f(i) = (i * M) mod N
+                const endPoint = (i * M) % N;
+                const angle2 = (endPoint * 2 * Math.PI) / N - (Math.PI / 2);
+                const x2 = cx + R * Math.cos(angle2);
+                const y2 = cy + R * Math.sin(angle2);
+
+                // Trek de verbindingslijn
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+            }
+            
+            ctx.stroke();
+        }
+
+        // Event listeners voor real-time geometrische updates
+        modSlider.addEventListener('input', drawVortex);
+        multSlider.addEventListener('input', drawVortex);
+
+        // Initialiseer direct bij het laden
+        drawVortex();
+    </script>
+
+</body>
+</html>

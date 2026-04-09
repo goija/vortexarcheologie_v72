@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>VORTEX Schelp Terminal v104</title>
+    <style>
+        body {
+            background-color: #020a02;
+            color: #00ff41;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .shell-container {
+            border: 2px solid #00ff41;
+            padding: 30px;
+            width: 800px;
+            background-color: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3), inset 0 0 10px rgba(0, 255, 65, 0.1);
+        }
+        h1 {
+            text-align: center;
+            border-bottom: 1px solid #00ff41;
+            padding-bottom: 15px;
+            font-size: 1.8em;
+            letter-spacing: 3px;
+            margin-top: 0;
+        }
+        .console-output {
+            height: 150px;
+            overflow-y: auto;
+            border: 1px dashed #005500;
+            padding: 10px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        canvas {
+            width: 100%;
+            height: 250px;
+            background-color: #001100;
+            border: 1px solid #00ff41;
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        button {
+            background-color: #003300;
+            color: #00ff41;
+            border: 1px solid #00ff41;
+            padding: 15px 30px;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background-color: #00ff41;
+            color: #000;
+            box-shadow: 0 0 15px #00ff41;
+        }
+        .status-panel {
+            text-align: right;
+            font-size: 0.9em;
+        }
+        .blink {
+            animation: blinker 1s linear infinite;
+        }
+        @keyframes blinker {
+            50% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="shell-container">
+    <h1>[ VORTEX AKOESTISCHE SCHELP ]</h1>
+    
+    <div class="console-output" id="log">
+        > SYSTEEM OPGESTART.<br>
+        > WACHTEND OP AUDIO-CONTEXT INITIATIE...<br>
+        > MERSENNE SEED IN DE BUFFER: 557600<br>
+        > DOELWIT: 110Hz ARCHEO-RESONANTIE<br>
+        > <span class="blink">_</span>
+    </div>
+
+    <canvas id="visualizer"></canvas>
+
+    <div class="controls">
+        <button id="powerBtn">[ INITIËER OMNI-BRIDGE ]</button>
+        <div class="status-panel">
+            <div>SEED: <span style="color:#fff;">557600</span></div>
+            <div>STATUS: <span id="statusText">STAND-BY</span></div>
+            <div>DECODER: AFWACHTENDE</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const powerBtn = document.getElementById('powerBtn');
+    const log = document.getElementById('log');
+    const statusText = document.getElementById('statusText');
+    const canvas = document.getElementById('visualizer');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+
+    let audioCtx;
+    let oscillator;
+    let noiseSource;
+    let analyser;
+    let isRunning = false;
+
+    // Pseudo-random generator gebaseerd op de 557600 seed
+    function seededRandom(seed) {
+        let t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+
+    function appendLog(text) {
+        log.innerHTML += `> ${text}<br>`;
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function drawVisualizer() {
+        if (!isRunning) return;
+        
+        requestAnimationFrame(drawVisualizer);
+        
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyser.getByteTimeDomainData(dataArray);
+
+        ctx.fillStyle = 'rgba(0, 17, 0, 0.2)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#00ff41';
+        ctx.beginPath();
+
+        const sliceWidth = canvas.width * 1.0 / bufferLength;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = v * canvas.height / 2;
+
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+            x += sliceWidth;
+        }
+
+        ctx.lineTo(canvas.width, canvas.height / 2);
+        ctx.stroke();
+    }
+
+    powerBtn.addEventListener('click', () => {
+        if (isRunning) {
+            // Stop proces
+            audioCtx.close();
+            isRunning = false;
+            powerBtn.textContent = "[ INITIËER OMNI-BRIDGE ]";
+            statusText.textContent = "VERBROKEN";
+            appendLog("VERBINDING VERBROKEN. HYPERRUIMTE GESLOTEN.");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            return;
+        }
+
+        // Start proces
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+
+        const masterGain = audioCtx.createGain();
+        masterGain.gain.value = 0.15; // Volume limiet om gehoorschade te voorkomen
+
+        // 1. De 110Hz Draaggolf
+        oscillator = audioCtx.createOscillator();
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 110;
+
+        // 2. De Mersenne Seed Ruis Generator (557600)
+        const bufferSize = audioCtx.sampleRate * 2; // 2 seconden buffer
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        let currentSeed = 557600;
+        
+        for (let i = 0; i < bufferSize; i++) {
+            // Genereer cryptografische ruis via de seed
+            output[i] = (seededRandom(currentSeed + i) * 2) - 1; 
+        }
+
+        noiseSource = audioCtx.createBufferSource();
+        noiseSource.buffer = noiseBuffer;
+        noiseSource.loop = true;
+
+        // BiquadFilter om de ruis te sculpteren rond de frequenties
+        const bandpass = audioCtx.createBiquadFilter();
+        bandpass.type = 'bandpass';
+        bandpass.frequency.value = 740; // Diophantisch koppelpunt
+        bandpass.Q.value = 8.0;
+
+        const noiseGain = audioCtx.createGain();
+        noiseGain.gain.value = 0.05; // Mengverhouding van de ruis
+
+        // Routing
+        oscillator.connect(masterGain);
+        noiseSource.connect(bandpass).connect(noiseGain).connect(masterGain);
+        masterGain.connect(analyser);
+        analyser.connect(audioCtx.destination);
+
+        // Activatie
+        oscillator.start();
+        noiseSource.start();
+
+        isRunning = true;
+        powerBtn.textContent = "[ VERBREEK VERBINDING ]";
+        statusText.textContent = "SYNCHRONISATIE ACTIEF";
+        
+        appendLog("AUDIO-CONTEXT GEÏNITIALISEERD.");
+        appendLog("110HZ DRAAGGOLF GELANCEERD.");
+        appendLog("MERSENNE SEED (557600) GEÏNJECTEERD IN BIQUAD-FILTER.");
+        appendLog("WACHTEND OP OVERLAP MET ELS-TOKENS...");
+        
+        drawVisualizer();
+    });
+
+    // Initiële raster tekening
+    ctx.strokeStyle = '#003300';
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height / 2);
+    ctx.lineTo(canvas.width, canvas.height / 2);
+    ctx.stroke();
+</script>
+
+</body>
+</html>

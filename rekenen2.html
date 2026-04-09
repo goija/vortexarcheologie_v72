@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>VORTEX AUDIO-VISUAL ENGINE</title>
+    <style>
+        body { background: #030303; color: #00ff00; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .vortex-ui { border: 1px solid #00ff00; padding: 25px; background: #000; box-shadow: 0 0 30px rgba(0,255,0,0.2); width: 650px; text-align: center; }
+        h1 { font-size: 1rem; letter-spacing: 5px; border-bottom: 1px double #005500; padding-bottom: 10px; margin-bottom: 20px; }
+        .stats { display: flex; justify-content: space-between; margin: 15px 0; font-size: 0.8rem; color: #008800; }
+        .data-stream { background: #001100; border: 1px solid #004400; padding: 10px; margin-bottom: 20px; font-size: 0.85rem; height: 40px; display: flex; align-items: center; justify-content: space-around; }
+        .btn-play { background: #002200; color: #00ff00; border: 1px solid #00ff00; padding: 15px; cursor: pointer; width: 100%; font-weight: bold; letter-spacing: 2px; }
+        .btn-play:hover { background: #00ff00; color: #000; }
+        canvas { display: block; margin: 20px auto; border: 1px solid #002200; }
+        .highlight { color: #ffffff; text-shadow: 0 0 5px #00ff00; }
+    </style>
+</head>
+<body>
+
+<div class="vortex-ui">
+    <h1>[ SONIC SYNC ACTIVATED ]</h1>
+    
+    <div class="stats">
+        <span>MODE: <span class="highlight">41-TET AUDIO</span></span>
+        <span>STATUS: <span id="status" class="highlight">STANDBY</span></span>
+        <span>ID: <span id="idDisplay" class="highlight">0</span>/41</span>
+    </div>
+
+    <div class="data-stream">
+        GRAY: <span id="maskDisplay" class="highlight">000000</span> | 
+        HZ: <span id="freqDisplay" class="highlight">110.00</span>
+    </div>
+
+    <canvas id="vortexCanvas" width="500" height="500"></canvas>
+
+    <button class="btn-play" onclick="initAudioAndToggle()" id="playBtn">INITIALIZE & START</button>
+</div>
+
+<script>
+    const canvas = document.getElementById('vortexCanvas');
+    const ctx = canvas.getContext('2d');
+    let step = 0;
+    let running = false;
+    let timer;
+
+    // Audio Context & Oscillator setup
+    let audioCtx;
+    let osc;
+    let gainNode;
+
+    const getGray = (n) => n ^ (n >> 1);
+    const getFreq = (n) => 110 * Math.pow(2, n / 41);
+
+    function draw() {
+        if (!running) return;
+
+        const gray = getGray(step);
+        const freq = getFreq(step);
+        
+        document.getElementById('idDisplay').textContent = step;
+        document.getElementById('maskDisplay').textContent = gray.toString(2).padStart(6, '0');
+        document.getElementById('freqDisplay').textContent = freq.toFixed(2);
+
+        // Update Oscillator
+        if (osc) {
+            osc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.05);
+        }
+
+        // Canvas Drawing
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const cx = 250, cy = 250, R = 230;
+        const N = 281; 
+        const M = 16.5 + (gray / 64); // Geometrie reageert op Gray-bitmask
+
+        ctx.strokeStyle = `rgba(0, 255, 0, ${0.2 + (gray/100)})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i < N; i++) {
+            const a1 = (i * 2 * Math.PI) / N - Math.PI/2;
+            const x1 = cx + R * Math.cos(a1);
+            const y1 = cy + R * Math.sin(a1);
+            const a2 = (((i * M) % N) * 2 * Math.PI) / N - Math.PI/2;
+            const x2 = cx + R * Math.cos(a2);
+            const y2 = cy + R * Math.sin(a2);
+            ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+        }
+        ctx.stroke();
+
+        step = (step + 1) % 42;
+        timer = setTimeout(draw, 250); // Sequencer tempo
+    }
+
+    function initAudioAndToggle() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            osc = audioCtx.createOscillator();
+            gainNode = audioCtx.createGain();
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(110, audioCtx.currentTime);
+            
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // Volume safety
+            
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            osc.start();
+        }
+
+        running = !running;
+        document.getElementById('status').textContent = running ? "RUNNING" : "PAUSED";
+        document.getElementById('playBtn').textContent = running ? "STOP SEQUENCE" : "RESUME SEQUENCE";
+        
+        if (running) {
+            audioCtx.resume();
+            draw();
+        } else {
+            clearTimeout(timer);
+        }
+    }
+</script>
+
+</body>
+</html>

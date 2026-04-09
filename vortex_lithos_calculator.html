@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX v122.0 // OMNI-SONAR & ASTRO-MAPPER</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        :root {
+            --fc-100-black: #050508;                      
+            --fc-155-heliocyan: #00a9e0;                  
+            --lithos-amber: #ffb000;                     
+            --alert-red: #d92534;                    
+            --fc-161-green: #00ff41;                      
+            --panel-bg: rgba(10, 10, 15, 0.9); 
+            --border-color: #333;
+            --text-main: #e0e0e0; 
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+
+        body, html { background-color: var(--fc-100-black); color: var(--text-main); font-family: var(--font-mono); margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        
+        header { flex: 0 0 60px; background: linear-gradient(180deg, #050508 0%, #111 100%); border-bottom: 1px solid var(--fc-155-heliocyan); padding: 0 25px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; }
+        .title { color: var(--fc-155-heliocyan); font-size: 1.4em; font-weight: bold; letter-spacing: 3px; }
+        .btn-help { background: transparent; border: 1px solid var(--fc-155-heliocyan); color: var(--fc-155-heliocyan); padding: 5px 15px; cursor: pointer; font-weight: bold; }
+        .btn-help:hover { background: var(--fc-155-heliocyan); color: #000; }
+
+        .main-grid { display: grid; grid-template-columns: 350px 1fr 1fr; width: 100%; height: calc(100vh - 60px); }
+        
+        /* Sidebar Controls */
+        .sidebar { background: var(--panel-bg); border-right: 1px solid var(--border-color); padding: 15px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
+        .control-group { border: 1px solid #222; padding: 10px; background: #000; }
+        .control-title { color: var(--lithos-amber); font-size: 0.8em; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px; font-weight: bold; }
+        
+        input[type="file"], input[type="text"] { width: 100%; background: #111; border: 1px solid #444; color: var(--fc-161-green); padding: 8px; box-sizing: border-box; margin-bottom: 10px; font-family: inherit;}
+        button { background: #111; border: 1px solid #555; color: #fff; padding: 10px; cursor: pointer; width: 100%; font-weight: bold; text-transform: uppercase; transition: 0.2s; margin-bottom: 5px; }
+        button:hover { background: #333; border-color: var(--fc-161-green); }
+        .btn-sonar { background: #002200; border-color: var(--fc-161-green); color: var(--fc-161-green); }
+
+        /* Terminal Log */
+        .terminal { flex-grow: 1; background: #020202; border: 1px solid #222; padding: 10px; font-size: 0.75em; overflow-y: auto; color: #aaa; }
+        .log-info { color: var(--fc-155-heliocyan); }
+        .log-success { color: var(--fc-161-green); }
+        .log-warn { color: var(--lithos-amber); }
+
+        /* Mappers */
+        #geoMap { width: 100%; height: 100%; border-right: 1px solid var(--border-color); }
+        #astroCanvas { width: 100%; height: 100%; background: radial-gradient(circle at center, #050510 0%, #000 100%); display: block; }
+        .canvas-container { position: relative; width: 100%; height: 100%; }
+        .canvas-overlay { position: absolute; top: 10px; left: 10px; color: var(--fc-155-heliocyan); font-size: 0.8em; pointer-events: none; text-shadow: 0 0 5px #000; }
+
+        /* Help Modal */
+        #helpModal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; }
+        .help-content { background: #111; border: 1px solid var(--fc-155-heliocyan); padding: 30px; width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 0 30px rgba(0, 169, 224, 0.3); }
+        .help-content h2 { color: var(--fc-155-heliocyan); margin-top: 0; }
+        .help-content p { font-size: 0.9em; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="title">VORTEX_NEXUS <span class="version-tag" style="font-size:0.5em; color:#fff; background:#333; padding:2px 5px; margin-left:10px;">v122.0 [OMNI-SONAR]</span></div>
+    <button class="btn-help" onclick="toggleHelp()">[ ? ] SYSTEEM HELP</button>
+</header>
+
+<div class="main-grid">
+    <div class="sidebar">
+        <div class="control-group">
+            <div class="control-title">1. DATA UPLOADER (JSON / TXT)</div>
+            <input type="file" id="dataFile" accept=".json,.geojson,.txt">
+            <button onclick="processUpload()">PARSEER DATA</button>
+        </div>
+
+        <div class="control-group">
+            <div class="control-title">2. ASTRO-MAPPER ZOEKEN</div>
+            <input type="text" id="starSearch" placeholder="Zoek ster (bijv. Vega, Deneb)..." onkeypress="if(event.key === 'Enter') searchStar()">
+            <button onclick="searchStar()">ZOEK & LOCK VECTOR</button>
+        </div>
+
+        <div class="control-group">
+            <div class="control-title">3. LIVE SONAR ENGINE (18.5kHz)</div>
+            <button class="btn-sonar" id="btnSonar" onclick="toggleSonar()">ACTIVATE SONAR SWEEP</button>
+        </div>
+
+        <div class="terminal" id="sysLog">
+            <div>> VORTEX ENGINE v122.0 INITIALIZED.</div>
+            <div>> Wachten op data-invoer...</div>
+        </div>
+    </div>
+
+    <div id="geoMap"></div>
+
+    <div class="canvas-container">
+        <div class="canvas-overlay" id="astroOverlay">
+            TARGET: NONE<br>
+            RA/DEC: -- / --<br>
+            SONAR: INACTIVE
+        </div>
+        <canvas id="astroCanvas"></canvas>
+    </div>
+</div>
+
+<div id="helpModal">
+    <div class="help-content">
+        <h2>VORTEX OMNI-SONAR: HANDLEIDING</h2>
+        <p><strong style="color:var(--lithos-amber);">1. DATA UPLOADER:</strong><br>
+        Upload een <code>.geojson</code> bestand om archeologische ankerpunten (zoals grafheuvels op de Westerheide) direct op de geografische kaart te plotten. Upload een <code>data.txt</code> met <em>Gray-code</em> of <em>Bitcode</em> om cryptografische resonantiepunten op de Sterrenkaart te laden.</p>
+        <p><strong style="color:var(--fc-155-heliocyan);">2. ASTRO-MAPPER ZOEKEN:</strong><br>
+        Typ de naam van een sterknooppunt (bijv. <strong>Vega</strong> of <strong>Deneb</strong>). De engine berekent de 161.6° of 108° hoek en tekent een targeting vector op het Astro-Canvas.</p>
+        <p><strong style="color:var(--fc-161-green);">3. LIVE SONAR ENGINE:</strong><br>
+        Activeert een visuele radar sweep op de sterrenkaart en genereert de 18.5kHz (ultrasone) pings via de Web Audio API telkens wanneer de sonar-lijn een object of ster raakt.</p>
+        <button style="margin-top:20px; background:var(--fc-155-heliocyan); color:#000;" onclick="toggleHelp()">SLUITEN</button>
+    </div>
+</div>
+
+<script>
+    // --- SYSTEEM LOGGING ---
+    function logMsg(msg, type = '') {
+        const log = document.getElementById('sysLog');
+        log.innerHTML += `<div class="${type}">> ${msg}</div>`;
+        log.scrollTop = log.scrollHeight;
+    }
+
+    // --- HELP MODAL ---
+    function toggleHelp() {
+        const modal = document.getElementById('helpModal');
+        modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    // --- LEAFLET GEO-MAP (AARDE) ---
+    const map = L.map('geoMap', { zoomControl: false }).setView([52.257, 5.214], 13); // Laren Nulpunt
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+    let geoLayer = L.layerGroup().addTo(map);
+
+    // --- ASTRO-CANVAS (KOSMOS & SONAR) ---
+    const canvas = document.getElementById('astroCanvas');
+    const ctx = canvas.getContext('2d');
+    let width, height, cx, cy;
+    let stars = [];
+    let targetStar = null;
+    
+    // Sonar variabelen
+    let sonarActive = false;
+    let sonarAngle = 0;
+    let audioCtx = null;
+
+    function resizeCanvas() {
+        width = canvas.width = canvas.parentElement.clientWidth;
+        height = canvas.height = canvas.parentElement.clientHeight;
+        cx = width / 2;
+        cy = height / 2;
+        initStars();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // Genereer sterren inclusief Vega en Deneb
+    function initStars() {
+        stars = [];
+        // Achtergrondsterren
+        for(let i=0; i<100; i++) {
+            stars.push({
+                x: Math.random() * width, y: Math.random() * height,
+                name: `Sys-${i}`, radius: Math.random() * 1.5, color: '#555',
+                angle: 0, dist: 0 // Berekend t.o.v. centrum
+            });
+        }
+        // Anker sterren (Polaire mapping gesimuleerd)
+        stars.push({ x: cx + 150*Math.cos(161.6*Math.PI/180), y: cy + 150*Math.sin(161.6*Math.PI/180), name: 'VEGA', radius: 4, color: '#00ffff' });
+        stars.push({ x: cx + 100*Math.cos(108*Math.PI/180), y: cy + 100*Math.sin(108*Math.PI/180), name: 'DENEB', radius: 3.5, color: '#ffb000' });
+        
+        // Bereken poolcoördinaten voor sonar detectie
+        stars.forEach(s => {
+            const dx = s.x - cx; const dy = s.y - cy;
+            s.dist = Math.sqrt(dx*dx + dy*dy);
+            let a = Math.atan2(dy, dx);
+            if(a < 0) a += Math.PI * 2;
+            s.angle = a;
+        });
+    }
+
+    function drawAstroMap() {
+        ctx.clearRect(0, 0, width, height);
+
+        // Achtergrond grid
+        ctx.strokeStyle = 'rgba(0, 169, 224, 0.1)';
+        ctx.lineWidth = 1;
+        for(let r=50; r<Math.max(width, height); r+=50) {
+            ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+        }
+
+        // Teken Sterren
+        stars.forEach(s => {
+            ctx.beginPath(); ctx.arc(s.x, s.y, s.radius, 0, Math.PI*2);
+            ctx.fillStyle = s.color; ctx.fill();
+            if(s.name === 'VEGA' || s.name === 'DENEB' || s.radius > 2) {
+                ctx.fillStyle = '#aaa'; ctx.font = '10px Courier';
+                ctx.fillText(s.name, s.x + 8, s.y + 3);
+            }
+        });
+
+        // Teken Target Vector
+        if (targetStar) {
+            ctx.strokeStyle = 'rgba(0, 255, 65, 0.5)';
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(targetStar.x, targetStar.y); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.beginPath(); ctx.arc(targetStar.x, targetStar.y, 10, 0, Math.PI*2); ctx.strokeStyle = '#00ff41'; ctx.stroke();
+        }
+
+        // Sonar Sweep
+        if (sonarActive) {
+            sonarAngle += 0.03;
+            if(sonarAngle > Math.PI * 2) sonarAngle = 0;
+
+            // Sonar Lijn
+            const sx = cx + Math.max(width, height) * Math.cos(sonarAngle);
+            const sy = cy + Math.max(width, height) * Math.sin(sonarAngle);
+            
+            const gradient = ctx.createLinearGradient(cx, cy, sx, sy);
+            gradient.addColorStop(0, 'rgba(0, 255, 65, 0.8)');
+            gradient.addColorStop(1, 'rgba(0, 255, 65, 0)');
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(sx, sy); ctx.stroke();
+
+            // Detectie (Piep als hoek overeenkomt)
+            stars.forEach(s => {
+                if (Math.abs(s.angle - sonarAngle) < 0.03) {
+                    ctx.beginPath(); ctx.arc(s.x, s.y, 15, 0, Math.PI*2);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; ctx.fill();
+                    if(s.name === 'VEGA' || s.name === 'DENEB' || s.name.startsWith('M_')) pingAudio(18500); // 18.5kHz ping
+                }
+            });
+        }
+        requestAnimationFrame(drawAstroMap);
+    }
+
+    // --- AUDIO ENGINE (SONAR PING) ---
+    function pingAudio(freq) {
+        if(!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime); // Ultrasoon of hoorbaar
+        
+        gain.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+        
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+    }
+
+    function toggleSonar() {
+        sonarActive = !sonarActive;
+        const btn = document.getElementById('btnSonar');
+        if (sonarActive) {
+            if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            btn.style.background = 'var(--fc-161-green)';
+            btn.style.color = '#000';
+            btn.innerText = 'SONAR SWEEP RUNNING';
+            document.getElementById('astroOverlay').innerHTML = `STATUS: ACTIVE<br>FREQ: 18.5 kHz`;
+            logMsg('Sonar geactiveerd. Luistert naar geometrische reflecties...', 'log-success');
+        } else {
+            btn.style.background = '#002200';
+            btn.style.color = 'var(--fc-161-green)';
+            btn.innerText = 'ACTIVATE SONAR SWEEP';
+            document.getElementById('astroOverlay').innerHTML = `STATUS: STASIS`;
+            logMsg('Sonar gepauzeerd.', 'log-warn');
+        }
+    }
+
+    function searchStar() {
+        const query = document.getElementById('starSearch').value.toUpperCase();
+        targetStar = stars.find(s => s.name === query);
+        if(targetStar) {
+            logMsg(`Target Locked: ${query}. Vector as berekend.`, 'log-info');
+            document.getElementById('astroOverlay').innerHTML = `TARGET: ${query}<br>VECTOR: ${(targetStar.angle * 180/Math.PI).toFixed(1)}°`;
+            pingAudio(800); // Bevestigings ping (hoorbaar)
+        } else {
+            logMsg(`Target '${query}' niet gevonden in de huidige matrix.`, 'log-warn');
+            targetStar = null;
+        }
+    }
+
+    // --- DATA UPLOADER PARSER ---
+    function processUpload() {
+        const fileInput = document.getElementById('dataFile');
+        if (!fileInput.files.length) {
+            logMsg('Geen bestand geselecteerd.', 'log-warn');
+            return;
+        }
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+            const content = e.target.result;
+            if (file.name.endsWith('.json') || file.name.endsWith('.geojson')) {
+                try {
+                    const data = JSON.parse(content);
+                    L.geoJSON(data, {
+                        pointToLayer: function (feature, latlng) {
+                            return L.circleMarker(latlng, { radius: 8, fillColor: "#ff00ff", color: "#fff", weight: 1, fillOpacity: 0.8 });
+                        },
+                        onEachFeature: function (feature, layer) {
+                            layer.bindPopup(feature.properties.name || "Archeo Node");
+                        }
+                    }).addTo(geoLayer);
+                    logMsg(`GeoJSON Data succesvol geprojecteerd op de Aardse map.`, 'log-success');
+                    map.fitBounds(geoLayer.getBounds());
+                } catch(err) {
+                    logMsg(`Fout bij parsen GeoJSON: ${err.message}`, 'log-warn');
+                }
+            } else if (file.name.endsWith('.txt')) {
+                // Simuleer parsing van Gray-code / Bitcode data
+                logMsg(`Bitcode tekstbestand gedetecteerd. Analyseren van Gray-code...`, 'log-info');
+                setTimeout(() => {
+                    const lines = content.split('\n').slice(0, 5); // Pak eerste 5 regels als test
+                    lines.forEach((line, index) => {
+                        if(line.trim().length > 0) {
+                            // Injecteer als nieuwe ster/anomalie
+                            stars.push({
+                                x: cx + (Math.random()*200 - 100), 
+                                y: cy + (Math.random()*200 - 100), 
+                                name: `M_${index}`, radius: 4, color: '#ff00ff', angle: 0, dist: 0
+                            });
+                        }
+                    });
+                    // Herbereken hoeken
+                    stars.forEach(s => {
+                        const dx = s.x - cx; const dy = s.y - cy;
+                        s.dist = Math.sqrt(dx*dx + dy*dy);
+                        let a = Math.atan2(dy, dx);
+                        if(a < 0) a += Math.PI * 2;
+                        s.angle = a;
+                    });
+                    logMsg(`Decodering voltooid. Anomalieën (M-Nodes) toegevoegd aan Astro-Map.`, 'log-success');
+                }, 1000);
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // Init
+    resizeCanvas();
+    drawAstroMap();
+
+</script>
+</body>
+</html>

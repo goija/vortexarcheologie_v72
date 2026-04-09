@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>VORTEX v110.28 | 740-TET AUDIO-VISUAL ENGINE</title>
+    <style>
+        :root { --matrix-green: #00ff41; --dim-green: #003b00; --bg-black: #050505; }
+        body { background: var(--bg-black); color: var(--matrix-green); font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; overflow: hidden; }
+        .vortex-interface { border: 1px solid var(--matrix-green); padding: 20px; background: rgba(0, 10, 0, 0.9); box-shadow: 0 0 50px rgba(0, 255, 65, 0.1); width: 800px; position: relative; }
+        h1 { font-size: 0.9rem; text-align: center; letter-spacing: 8px; border-bottom: 1px double var(--dim-green); padding-bottom: 10px; margin-bottom: 20px; color: #fff; text-shadow: 0 0 10px var(--matrix-green); }
+        .hud-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; font-size: 0.75rem; }
+        .hud-panel { border: 1px solid var(--dim-green); padding: 10px; background: #000; }
+        .data-stream { font-family: 'Consolas', monospace; color: var(--matrix-green); font-size: 0.8rem; overflow: hidden; white-space: nowrap; border-left: 2px solid var(--matrix-green); padding-left: 10px; height: 20px; margin: 10px 0; }
+        canvas { display: block; margin: 0 auto; border: 1px solid var(--dim-green); background: radial-gradient(circle, #001100 0%, #000 100%); }
+        .btn-control { background: #000; color: var(--matrix-green); border: 1px solid var(--matrix-green); padding: 12px; width: 100%; cursor: pointer; font-weight: bold; letter-spacing: 3px; transition: 0.3s; margin-top: 10px; }
+        .btn-control:hover { background: var(--matrix-green); color: #000; box-shadow: 0 0 20px var(--matrix-green); }
+        .highlight { color: #fff; }
+        .gray-bits { letter-spacing: 2px; color: #008800; }
+    </style>
+</head>
+<body>
+
+<div class="vortex-interface">
+    <h1>[ VORTEX CORE: 740-TET MODE ]</h1>
+    
+    <div class="hud-grid">
+        <div class="hud-panel">
+            STATUS: <span class="highlight" id="status">STASIS_LOCKED</span><br>
+            RESOLUTION: <span class="highlight">740-TET (ULTRA-RES)</span><br>
+            TICK ID: <span class="highlight" id="tickId">000</span> / 740
+        </div>
+        <div class="hud-panel">
+            BASE_FREQ: <span class="highlight">110.000 Hz</span><br>
+            CURRENT_FREQ: <span class="highlight" id="freqDisplay">110.000</span> Hz<br>
+            GRAY_MASK: <span class="highlight gray-bits" id="grayDisplay">0000000000</span>
+        </div>
+    </div>
+
+    <div class="data-stream" id="logStream">Initializing Diophantine carrier waves...</div>
+
+    <canvas id="vortexCanvas" width="550" height="550"></canvas>
+
+    <button class="btn-control" onclick="toggleEngine()" id="mainBtn">ACTIVATE OMNI-BRIDGE</button>
+</div>
+
+<script>
+    const canvas = document.getElementById('vortexCanvas');
+    const ctx = canvas.getContext('2d');
+    const TET_STEPS = 740;
+    const BASE_FREQ = 110.00;
+    
+    let step = 0;
+    let running = false;
+    let audioCtx, osc, gainNode, timer;
+
+    // 10-bit Gray-code generator
+    const getGray = (n) => n ^ (n >> 1);
+    
+    // 740-TET Frequency calculation
+    const getFreq = (n) => BASE_FREQ * Math.pow(2, n / TET_STEPS);
+
+    function updateLog(msg) {
+        const stream = document.getElementById('logStream');
+        stream.textContent = `> ${msg}`;
+    }
+
+    function draw() {
+        if (!running) return;
+
+        const gray = getGray(step);
+        const freq = getFreq(step);
+        const grayString = gray.toString(2).padStart(10, '0');
+        const hammingWeight = (grayString.match(/1/g) || []).length;
+
+        // HUD Update
+        document.getElementById('tickId').textContent = step.toString().padStart(3, '0');
+        document.getElementById('freqDisplay').textContent = freq.toFixed(3);
+        document.getElementById('grayDisplay').textContent = grayString;
+
+        if (step % 40 === 0) updateLog(`RESONANCE_SCAN: ATTACHED_BITS=${hammingWeight} | SYNC_OK`);
+
+        // Audio Update
+        if (osc) {
+            osc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.01);
+        }
+
+        // Canvas Rendering
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const cx = 275, cy = 275, R = 250;
+        const N = 370; // Modulus optimisatie voor 740-stroom
+        
+        // De geometrie reageert op de 10-bit Gray-resolutie
+        const M = 16.5 + (gray / 2048); 
+
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+
+        for (let i = 0; i < N; i++) {
+            const a1 = (i * 2 * Math.PI) / N - Math.PI/2;
+            const x1 = cx + R * Math.cos(a1);
+            const y1 = cy + R * Math.sin(a1);
+
+            const dest = (i * M) % N;
+            const a2 = (dest * 2 * Math.PI) / N - Math.PI/2;
+            const x2 = cx + R * Math.cos(a2);
+            const y2 = cy + R * Math.sin(a2);
+
+            // Dynamische kleur op basis van Hamming-gewicht (intensiteit)
+            ctx.strokeStyle = `rgba(0, 255, 65, ${0.05 + (hammingWeight / 25)})`;
+            
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+        }
+        ctx.stroke();
+
+        step = (step + 1) % (TET_STEPS + 1);
+        timer = setTimeout(draw, 25); // Hoge snelheid voor 740-TET continuüm
+    }
+
+    function toggleEngine() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            osc = audioCtx.createOscillator();
+            gainNode = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(BASE_FREQ, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime); // Veilig volume
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            osc.start();
+            updateLog("AUDIO_ENGINE_LOADED: 740-TET BUFFER ACTIVE");
+        }
+
+        running = !running;
+        document.getElementById('status').textContent = running ? "RUNNING_740_SYNC" : "STASIS_PAUSED";
+        document.getElementById('mainBtn').textContent = running ? "ABORT SEQUENCE" : "RESUME OMNI-BRIDGE";
+        
+        if (running) {
+            audioCtx.resume();
+            draw();
+        } else {
+            clearTimeout(timer);
+        }
+    }
+</script>
+
+</body>
+</html>

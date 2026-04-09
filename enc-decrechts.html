@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>VORTEX Mersenne Twister Decryptie</title>
+    <style>
+        body {
+            background-color: #010501;
+            color: #00ff41;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+        }
+        .terminal {
+            border: 2px solid #00ff41;
+            padding: 30px;
+            width: 850px;
+            background-color: #000;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.2), inset 0 0 15px rgba(0, 255, 65, 0.1);
+        }
+        h1 {
+            text-align: center;
+            border-bottom: 2px dashed #00ff41;
+            padding-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-top: 0;
+            text-shadow: 0 0 8px #00ff41;
+        }
+        .control-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #001a00;
+            border: 1px solid #005500;
+            padding: 20px;
+            margin-top: 25px;
+        }
+        .seed-display {
+            font-size: 1.4em;
+            font-weight: bold;
+        }
+        button {
+            background-color: #003300;
+            color: #00ff41;
+            border: 2px solid #00ff41;
+            padding: 12px 25px;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            font-size: 1.2em;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background-color: #00ff41;
+            color: #000;
+            box-shadow: 0 0 15px #00ff41;
+        }
+        button:disabled {
+            background-color: #001100;
+            color: #004411;
+            border-color: #004411;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .console-output {
+            margin-top: 25px;
+            height: 280px;
+            background-color: #000a00;
+            border: 1px solid #005500;
+            padding: 20px;
+            font-size: 1.1em;
+            line-height: 1.8;
+            overflow-y: auto;
+            box-shadow: inset 0 0 20px #000;
+        }
+        .log-line {
+            opacity: 0;
+            transform: translateX(-10px);
+            animation: fadeIn 0.3s forwards;
+        }
+        .highlight {
+            color: #fff;
+            font-weight: bold;
+        }
+        .final-result {
+            margin-top: 30px;
+            border: 2px solid #fff;
+            background-color: #002200;
+            padding: 20px;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 1s;
+        }
+        .final-result h2 {
+            margin: 0;
+            font-size: 1.2em;
+            color: #00ff41;
+            margin-bottom: 10px;
+        }
+        .stone-text {
+            font-size: 4em;
+            letter-spacing: 15px;
+            color: #fff;
+            text-shadow: 0 0 20px #fff, 0 0 40px #00ff41;
+            margin: 0;
+            animation: pulse 2s infinite alternate;
+        }
+        @keyframes fadeIn {
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes pulse {
+            from { text-shadow: 0 0 10px #fff, 0 0 20px #00ff41; }
+            to { text-shadow: 0 0 20px #fff, 0 0 50px #00ff41, 0 0 80px #00ff41; }
+        }
+        .blink {
+            animation: blinker 1s linear infinite;
+        }
+        @keyframes blinker {
+            50% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="terminal">
+    <h1>[ VORTEX SUB-LAAG EXTRACTIE ]</h1>
+
+    <div class="control-panel">
+        <div class="seed-display">HUIDIGE SEED: <span class="highlight">557600</span></div>
+        <button id="startBtn">[ START TWISTER CYCLUS ]</button>
+    </div>
+
+    <div class="console-output" id="console">
+        <span class="blink">_</span>
+    </div>
+
+    <div class="final-result" id="resultBox">
+        <h2>GEDECODEERDE SUB-LAAG:</h2>
+        <div class="stone-text">STONE</div>
+    </div>
+</div>
+
+<script>
+    const startBtn = document.getElementById('startBtn');
+    const consoleDiv = document.getElementById('console');
+    const resultBox = document.getElementById('resultBox');
+
+    const sequenceSteps = [
+        "> INITIALISEER MERSENNE MT19937...",
+        "> HOOFD-SEED GEACCEPTEERD: 557600",
+        "> 740HZ OVERLAP GEDETECTEERD. START EXTRACTIE...",
+        "> BEREKENING VAN 5 PSEUDO-RANDOM INTEGERS:",
+        "<br>",
+        "> <span class='highlight'>INT 1:</span> 34850890 &nbsp;-> MOD 26 = 18 &nbsp;-> <span class='highlight'>[ S ]</span>",
+        "> <span class='highlight'>INT 2:</span> 99421045 &nbsp;-> MOD 26 = 19 &nbsp;-> <span class='highlight'>[ T ]</span>",
+        "> <span class='highlight'>INT 3:</span> 11059238 &nbsp;-> MOD 26 = 14 &nbsp;-> <span class='highlight'>[ O ]</span>",
+        "> <span class='highlight'>INT 4:</span> 77349187 &nbsp;-> MOD 26 = 13 &nbsp;-> <span class='highlight'>[ N ]</span>",
+        "> <span class='highlight'>INT 5:</span> 44920112 &nbsp;-> MOD 26 = 4 &nbsp; -> <span class='highlight'>[ E ]</span>",
+        "<br>",
+        "> CRYPTOGRAFISCHE MODULO-TRANSLATIE VOLTOOID."
+    ];
+
+    startBtn.addEventListener('click', async () => {
+        startBtn.disabled = true;
+        startBtn.innerText = "[ CYCLUS DRAAIT... ]";
+        consoleDiv.innerHTML = ""; // Clear console
+        resultBox.style.opacity = "0";
+
+        for (let i = 0; i < sequenceSteps.length; i++) {
+            await new Promise(r => setTimeout(r, 600)); // Delay between lines
+            
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            line.innerHTML = sequenceSteps[i];
+            consoleDiv.appendChild(line);
+            
+            // Auto-scroll
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        // Final pause before reveal
+        await new Promise(r => setTimeout(r, 1200));
+        
+        resultBox.style.opacity = "1";
+        startBtn.innerText = "[ VOLTOOID ]";
+        
+        const endLine = document.createElement('div');
+        endLine.className = 'log-line';
+        endLine.innerHTML = "<br>> <strong>SYSTEEM VERGRENDELD. DATA VEILIGGESTELD.</strong>";
+        consoleDiv.appendChild(endLine);
+        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    });
+</script>
+
+</body>
+</html>

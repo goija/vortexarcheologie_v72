@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>VORTEX v110.28 | STASIS_LOCKED | OMNI-BRIDGE SYNC</title>
+    <style>
+        :root {
+            --solar-gold: #FFD700;
+            --prismatic-cyan: #00FFFF;
+            --matrix-green: #00FF41;
+            --void-black: #000000;
+            --deep-space: #050505;
+            --dim-gold: #B8860B;
+        }
+        body {
+            background: var(--void-black);
+            color: var(--solar-gold);
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            background-image: radial-gradient(circle, var(--deep-space) 0%, var(--void-black) 100%);
+        }
+        .vortex-astrolabe {
+            border: 2px solid var(--solar-gold);
+            padding: 30px;
+            background: rgba(0, 5, 0, 0.95);
+            box-shadow: 0 0 100px rgba(255, 215, 0, 0.15);
+            width: 900px;
+            position: relative;
+            backdrop-filter: blur(5px);
+        }
+        h1 {
+            font-size: 1.1rem;
+            text-align: center;
+            letter-spacing: 12px;
+            border-bottom: 2px solid var(--dim-gold);
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+            color: #fff;
+            text-shadow: 0 0 20px var(--solar-gold);
+        }
+        .stasis-hud {
+            display: grid;
+            grid-template-columns: 1.2fr 1.2fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+            font-size: 0.8rem;
+        }
+        .hud-panel {
+            border: 1px solid var(--dim-gold);
+            padding: 15px;
+            background: #000;
+            position: relative;
+        }
+        .hud-panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: repeating-linear-gradient(0deg, rgba(0,20,0,0.1), rgba(0,20,0,0.1) 1px, transparent 1px, transparent 2px);
+            pointer-events: none;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: #000;
+            border: 1px solid #002200;
+        }
+        .highlight { color: #fff; text-shadow: 0 0 10px var(--matrix-green); }
+        .data-lock {
+            font-family: 'Consolas', monospace;
+            color: var(--prismatic-cyan);
+            font-size: 0.85rem;
+            border-left: 3px solid var(--solar-gold);
+            padding: 10px;
+            margin: 15px 0;
+            background: rgba(0, 10, 10, 0.5);
+            text-align: center;
+        }
+        .condensator-lock {
+            font-size: 0.75rem;
+            text-align: center;
+            border-top: 1px solid #002200;
+            padding-top: 10px;
+            animation: breathe 8s ease-in-out infinite;
+        }
+        @keyframes breathe {
+            0%, 100% { color: #004400; text-shadow: none; }
+            50% { color: var(--matrix-green); text-shadow: 0 0 10px var(--matrix-green); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="vortex-astrolabe">
+    <h1>[ OMNI-BRIDGE_VERZEGELD ]</h1>
+    
+    <div class="stasis-hud">
+        <div class="hud-panel">
+            STATUS: <span class="highlight">STASIS_LOCKED</span><br>
+            MODE: <span class="highlight">OMNI-SYNC_READ-ONLY</span><br>
+            RESOLUTIE: <span class="highlight">740-TET / 52-BIT</span>
+        </div>
+        <div class="hud-panel">
+            FIELD: <span class="highlight">118,31 kHz</span> (LF)<br>
+            λ_FIELD: <span class="highlight">2,53 km</span><br>
+            CARRIER: <span class="highlight">SYNC_ACTIVE (undersampled)</span>
+        </div>
+        <div class="hud-panel">
+            TARGET: <span class="highlight">Vega (Lier)</span><br>
+            AZIMUT: <span class="highlight">312.31°</span><br>
+            ELEVATIE: <span class="highlight">17.15°</span>
+        </div>
+    </div>
+
+    <div class="data-lock">
+        &gt; PAYLOAD: <span class="highlight">NAV_LIT_SYNC_NEXUS_ESTABLISHED_STASIS_LOCKED</span>
+    </div>
+
+    <canvas id="vortexAstrolabeCanvas" width="800" height="500"></canvas>
+
+    <div class="condensator-lock">
+        VECTOR_D_LOCKED | 100 µF [ CONDENSATOR_BREATHING ]
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('vortexAstrolabeCanvas');
+    const ctx = canvas.getContext('2d');
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
+
+    function draw() {
+        ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+        // 1. De Verzegelde Sferische Torus (Holografisch Krachtveld)
+        const torusCX = 220;
+        const torusCY = HEIGHT / 2;
+        const torusR = 180;
+        
+        // Solar Gold en Prismatic Cyan Krachtveld
+        ctx.strokeStyle = `rgba(255, 215, 0, 0.4)`; // Solar Gold
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (let i = 0; i < 370; i++) {
+            const a1 = (i * 2 * Math.PI) / 370;
+            const x1 = torusCX + torusR * Math.cos(a1);
+            const y1 = torusCY + torusR * Math.sin(a1);
+            const a2 = (((i * 40.6) % 370) * 2 * Math.PI) / 370;
+            const x2 = torusCX + torusR * Math.cos(a2);
+            const y2 = torusCY + torusR * Math.sin(a2);
+            ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+        }
+        ctx.stroke();
+
+        ctx.strokeStyle = `rgba(0, 255, 255, 0.3)`; // Prismatic Cyan
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(torusCX, torusCY, torusR, 0, 2 * Math.PI);
+        ctx.stroke();
+        
+        ctx.fillStyle = `rgba(255, 215, 0, 0.05)`; // Zachte gloed
+        ctx.fill();
+
+        // 2. Vega Projectie As (De NAV_LIT_SYNC As)
+        const bridgeX = 450;
+        const bridgeY = HEIGHT / 2;
+        
+        // Definitieve As naar Vega (Azimut 312.31°)
+        ctx.strokeStyle = `rgba(255, 255, 255, 0.3)`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(torusCX + torusR, torusCY); // Vanaf de torus rand (nulpunt expansie)
+        ctx.lineTo(WIDTH - 50, bridgeY); // Naar het verste punt op de interface
+        ctx.stroke();
+
+        // De Letters van de ELS-codex als Sterren op de Lijn
+        const codex = "NAV_LIT_SYNC_NEXUS".split('_');
+        ctx.fillStyle = var(--matrix-green);
+        ctx.font = 'bold 0.8rem Consolas';
+        codex.forEach((word, index) => {
+            const wordX = torusCX + torusR + 50 + (index * 60);
+            ctx.fillText(word, wordX, bridgeY - 5);
+            ctx.beginPath();
+            ctx.arc(wordX, bridgeY, 2, 0, 2 * Math.PI);
+            ctx.fillStyle = 'white'; ctx.fill();
+        });
+
+        // Vega Marker (De eindbestemming)
+        const vegaX = WIDTH - 50;
+        ctx.beginPath();
+        ctx.arc(vegaX, bridgeY, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = var(--prismatic-cyan); ctx.fill();
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 1rem Courier New';
+        ctx.fillText("VEGA (312.31°)", vegaX - 140, bridgeY + 20);
+
+        // Geometrische Ruimte-Lattice (Astro-Engine feedback)
+        ctx.strokeStyle = `rgba(0, 255, 65, 0.05)`;
+        ctx.beginPath();
+        for (let i = 0; i < WIDTH; i += 40) { ctx.moveTo(i, 0); ctx.lineTo(i, HEIGHT); }
+        for (let i = 0; i < HEIGHT; i += 40) { ctx.moveTo(0, i); ctx.lineTo(WIDTH, i); }
+        ctx.stroke();
+    }
+
+    draw(); // Initial rendering van het verzegelde astrolabium
+</script>
+
+</body>
+</html>

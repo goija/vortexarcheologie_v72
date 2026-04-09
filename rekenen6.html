@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>VORTEX v110.28 | ANALYTICAL ENGINE</title>
+    <style>
+        :root { --neon: #00ff41; --dim-green: #003b00; --gold: #ffd700; }
+        body { background: #050505; color: var(--neon); font-family: 'Consolas', monospace; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .engine-container { border: 2px solid var(--neon); padding: 20px; width: 850px; background: rgba(0,15,0,0.9); box-shadow: 0 0 30px rgba(0,255,65,0.1); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .input-group { margin-bottom: 15px; border-left: 2px solid var(--gold); padding-left: 10px; }
+        label { display: block; font-size: 0.7rem; letter-spacing: 2px; margin-bottom: 5px; color: var(--gold); }
+        input { background: #000; border: 1px solid var(--neon); color: #fff; padding: 8px; width: 90%; font-family: inherit; }
+        .output-panel { background: #000; border: 1px solid var(--dim-green); padding: 15px; font-size: 0.8rem; line-height: 1.5; }
+        .result-line { border-bottom: 1px solid #111; padding: 5px 0; display: flex; justify-content: space-between; }
+        .highlight { color: #fff; font-weight: bold; }
+        h1 { font-size: 1rem; border-bottom: 1px double var(--neon); padding-bottom: 10px; text-align: center; letter-spacing: 5px; }
+        button { background: var(--neon); color: #000; border: none; padding: 10px; width: 100%; cursor: pointer; font-weight: bold; letter-spacing: 3px; margin-top: 20px; }
+        button:hover { background: #fff; box-shadow: 0 0 15px var(--neon); }
+    </style>
+</head>
+<body>
+
+<div class="engine-container">
+    <h1>[ VORTEX ANALYTICAL ENGINE ]</h1>
+    
+    <div class="grid">
+        <div class="input-panel">
+            <div class="input-group">
+                <label>INPUT FREQUENTIE (Hz)</label>
+                <input type="number" id="freqInput" value="118311.896" step="0.001">
+            </div>
+            <div class="input-group">
+                <label>MERSENNE EXPONENT (p)</label>
+                <input type="number" id="mersenneInput" value="1279">
+            </div>
+            <div class="input-group">
+                <label>MODULUS CONSTANTE (N)</label>
+                <input type="number" id="modulusInput" value="181">
+            </div>
+            <div class="input-group">
+                <label>TET RESOLUTIE (Stappen)</label>
+                <input type="number" id="tetInput" value="740">
+            </div>
+            <button onclick="performAnalysis()">EXECUTE ANALYSIS</button>
+        </div>
+
+        <div class="output-panel" id="results">
+            <div style="color: #666; text-align: center;">Wachten op data-injectie...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function performAnalysis() {
+        const f = parseFloat(document.getElementById('freqInput').value);
+        const p = parseInt(document.getElementById('mersenneInput').value);
+        const n = parseInt(document.getElementById('modulusInput').value);
+        const tet = parseInt(document.getElementById('tetInput').value);
+
+        // 1. Golflengte berekening (c = 299792458 m/s)
+        const lambda = (299792458 / f).toFixed(4);
+
+        // 2. Modulo 26 Letter-Decodering (STONE-X logica)
+        const charCode = Math.round(f) % 26;
+        const letter = String.fromCharCode(65 + charCode);
+
+        // 3. TET Stap Afwijking (Hoe dicht zit het bij een puur octaaf)
+        const tetStep = (Math.log2(f / 110) * tet).toFixed(2);
+
+        // 4. Hamming Gewicht Simulatie (52-bit basis)
+        const hamming = (p % 11); // Vereenvoudigde representatie van de bit-density
+
+        let html = `
+            <div class="result-line"><span>GOLFLENGTE (λ):</span> <span class="highlight">${lambda} m</span></div>
+            <div class="result-line"><span>ELS DECODER:</span> <span class="highlight">CHAR [ ${letter} ]</span></div>
+            <div class="result-line"><span>TET POSITION:</span> <span class="highlight">Step ${tetStep}</span></div>
+            <div class="result-line"><span>HAMMING WEIGHT:</span> <span class="highlight">${hamming} bits</span></div>
+            <div class="result-line"><span>NYQUIST LIMIT:</span> <span class="highlight">${(f * 2 / 1000).toFixed(2)} kHz</span></div>
+            <div class="result-line"><span>VORTEX STATUS:</span> <span class="highlight" style="color:var(--neon)">STASIS_OK</span></div>
+            <div style="margin-top:15px; font-size:0.65rem; color:var(--gold)">
+                ANALYSE_LOG: Frequentie ${f} Hz succesvol gekoppeld aan M_${p}. 
+                Berekende λ-veld is ${(lambda/1000).toFixed(2)} km. 
+                Systeem synchronisatie met Vega op 161.6°.
+            </div>
+        `;
+        document.getElementById('results').innerHTML = html;
+    }
+</script>
+
+</body>
+</html>
