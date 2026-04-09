@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX MATRIX GATEWAY // DUAL-DOMAIN ROUTER</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        :root {
+            --fc-100-black: #050508;                      
+            --laser-cyan: #00e5ff;                  
+            --lithos-amber: #ffb000;                     
+            --matrix-green: #00ff41;                      
+            --alert-red: #d92534;
+            --panel-bg: rgba(10, 15, 20, 0.9); 
+            --border-dim: #334;
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+
+        * { box-sizing: border-box; }
+        body, html { background-color: var(--fc-100-black); color: #e0e0e0; font-family: var(--font-mono); margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        
+        header { flex: 0 0 60px; background: #000; border-bottom: 2px solid var(--laser-cyan); padding: 0 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; box-shadow: 0 0 20px rgba(0, 229, 255, 0.2); }
+        .title { color: var(--laser-cyan); font-size: 1.5em; font-weight: bold; letter-spacing: 4px; text-shadow: 0 0 10px var(--laser-cyan); }
+        
+        .main-grid { display: grid; grid-template-columns: 350px 1fr 350px; grid-template-rows: 1fr 200px; width: 100%; height: calc(100vh - 60px); }
+        
+        .panel { background: var(--panel-bg); border-right: 1px solid var(--border-dim); border-bottom: 1px solid var(--border-dim); padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; z-index: 10; }
+        .panel-header { color: var(--lithos-amber); font-size: 0.9em; font-weight: bold; border-bottom: 1px solid var(--lithos-amber); padding-bottom: 5px; letter-spacing: 2px; text-transform: uppercase; }
+
+        /* Gateway List */
+        .gateway-item { background: #000; border: 1px solid #444; padding: 10px; border-left: 4px solid #444; transition: 0.3s; display: flex; justify-content: space-between; align-items: center; }
+        .gateway-item.active { border-left-color: var(--matrix-green); border-color: #004400; background: rgba(0, 20, 0, 0.8); }
+        .gateway-info { display: flex; flex-direction: column; }
+        .gw-name { font-weight: bold; font-size: 0.85em; color: #fff; }
+        .gw-status { font-size: 0.7em; color: #888; }
+        .active .gw-status { color: var(--matrix-green); }
+        .btn-connect { background: #111; color: var(--laser-cyan); border: 1px solid var(--laser-cyan); padding: 5px 10px; cursor: pointer; font-size: 0.7em; font-weight: bold; }
+        .btn-connect:hover { background: var(--laser-cyan); color: #000; }
+
+        /* Custom API Builder */
+        .input-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+        .input-group label { font-size: 0.7em; color: var(--laser-cyan); }
+        .input-group input, .input-group select { background: #000; border: 1px solid #555; color: var(--matrix-green); padding: 8px; font-family: inherit; font-size: 0.8em; outline: none; }
+        .input-group input:focus { border-color: var(--matrix-green); }
+        .btn-build { background: #002200; color: var(--matrix-green); border: 1px solid var(--matrix-green); padding: 10px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; }
+        .btn-build:hover { background: var(--matrix-green); color: #000; box-shadow: 0 0 15px var(--matrix-green); }
+
+        /* Dual Maps Container */
+        .maps-container { display: flex; flex-direction: column; grid-column: 2 / 3; grid-row: 1 / 2; }
+        #trackerMap { flex: 1; background: #000; border-bottom: 2px solid var(--laser-cyan); z-index: 1; }
+        #astroMap { flex: 1; background: radial-gradient(circle at center, #050510 0%, #000 100%); position: relative; }
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        .map-label { position: absolute; top: 10px; left: 10px; z-index: 400; background: rgba(0,0,0,0.7); padding: 5px 10px; border: 1px solid var(--lithos-amber); font-size: 0.7em; color: var(--lithos-amber); pointer-events: none; }
+
+        /* Terminal */
+        .terminal { grid-column: 1 / 4; grid-row: 2 / 3; background: #020202; border-top: 2px solid var(--border-dim); padding: 10px; font-size: 0.75em; color: #aaa; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+        .log-time { color: #555; margin-right: 10px; }
+        .log-sys { color: var(--laser-cyan); }
+        .log-data { color: var(--lithos-amber); }
+        .log-success { color: var(--matrix-green); }
+        .log-audio { color: #ff00ff; }
+        
+        /* Blinking Markers */
+        .beacon-marker { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--matrix-green); background: rgba(0, 255, 65, 0.2); animation: ping 1.5s infinite; }
+        .lora-marker { border-color: var(--laser-cyan); background: rgba(0, 229, 255, 0.2); animation: ping 2s infinite; }
+        @keyframes ping { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(2.5); opacity: 0; } }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="title">MATRIX GATEWAY // DUAL-DOMAIN ROUTER</div>
+    <div style="color: var(--matrix-green); font-size: 0.8em; letter-spacing: 2px;">STATUS: OMNI-BRIDGE LIVE</div>
+</header>
+
+<div class="main-grid">
+    <div class="panel">
+        <div class="panel-header">INSTITUTIONAL UPLINKS</div>
+        <div id="gateway-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+    </div>
+
+    <div class="maps-container">
+        <div id="trackerMap">
+            <div class="map-label">GEO-LAYER (LAREN / NL)</div>
+        </div>
+        <div id="astroMap">
+            <div class="map-label" style="border-color:var(--laser-cyan); color:var(--laser-cyan);">ASTRO-LAYER (FREQUENTIE VELD)</div>
+            <canvas id="astroCanvas"></canvas>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">CUSTOM API / LORA BUILDER</div>
+        
+        <div class="input-group">
+            <label>GATEWAY NAAM</label>
+            <input type="text" id="apiName" placeholder="Bijv. Archeo_Node_Alpha">
+        </div>
+        <div class="input-group">
+            <label>PROTOCOL / TYPE</label>
+            <select id="apiType">
+                <option value="LoRaWAN">LoRaWAN (Field Sensor)</option>
+                <option value="WSS">WebSocket Secure (WSS)</option>
+                <option value="REST">REST API (JSON)</option>
+                <option value="MQTT">MQTT Broker</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label>COÖRDINATEN (Lat, Lon)</label>
+            <input type="text" id="apiCoords" value="52.257, 5.214">
+        </div>
+        <div class="input-group">
+            <label>AKOESTISCHE VINGERAFDRUK (kHz)</label>
+            <input type="number" id="apiFreq" value="18.5" step="0.1">
+        </div>
+        
+        <button class="btn-build" onclick="buildCustomGateway()">GENEREER BAKEN & KOPPEL</button>
+        
+        <div style="margin-top: 15px; font-size: 0.7em; color: #666; line-height: 1.4;">
+            * Bij activatie wordt de node fysiek op de Geo-kaart geplaatst en als astronomische vector op de Astro-kaart, vergezeld van zijn specifieke frequentie-ping.
+        </div>
+    </div>
+
+    <div class="terminal" id="terminal">
+        <div><span class="log-time">[INIT]</span><span class="log-sys">VORTEX Dual-Domain Gateway v1.1.0 geladen.</span></div>
+        <div><span class="log-time">[INIT]</span><span class="log-sys">Audio Engine & Leaflet Maps Standby...</span></div>
+    </div>
+</div>
+
+<script>
+    // --- 0. Audio Engine (Acoustic Fingerprint) ---
+    let audioCtx = null;
+    function playAcousticPing(freq_kHz) {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = 'sine';
+        // Zet kHz om naar Hz. Let op: Boven 20kHz is onhoorbaar voor mensen, 
+        // in de browser wordt dit soms gefilterd, maar voor het VORTEX concept sturen we het erdoor.
+        osc.frequency.setValueAtTime(freq_kHz * 1000, audioCtx.currentTime); 
+        
+        gain.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05); // Snelle attack
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6); // Lange release (echo)
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.65);
+    }
+
+    // --- 1. Leaflet Geo-Map ---
+    const map = L.map('trackerMap', { zoomControl: false, attributionControl: false }).setView([52.15, 5.38], 9);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+    // --- 2. Astro-Map (Canvas) ---
+    const canvas = document.getElementById('astroCanvas');
+    const ctx = canvas.getContext('2d');
+    let astroNodes = [];
+    let radarAngle = 0;
+
+    function resizeCanvas() {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function drawAstroMap() {
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Grid cirkels
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.1)';
+        ctx.lineWidth = 1;
+        for(let r = 30; r < cx; r += 40) {
+            ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+        }
+
+        // Radar Sweep
+        radarAngle += 0.02;
+        const rx = cx + Math.cos(radarAngle) * cx;
+        const ry = cy + Math.sin(radarAngle) * cx;
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(rx, ry);
+        ctx.strokeStyle = 'rgba(0, 255, 65, 0.5)'; ctx.stroke();
+
+        // Nodes tekenen
+        astroNodes.forEach(node => {
+            const nx = cx + Math.cos(node.angle) * node.dist;
+            const ny = cy + Math.sin(node.angle) * node.dist;
+            
+            ctx.beginPath(); ctx.arc(nx, ny, 4, 0, Math.PI*2);
+            ctx.fillStyle = node.color; ctx.fill();
+            ctx.fillStyle = '#fff'; ctx.font = '9px Courier';
+            ctx.fillText(`${node.name} [${node.freq}kHz]`, nx + 8, ny + 3);
+            
+            // Lijn naar centrum
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(nx, ny);
+            ctx.strokeStyle = 'rgba(255, 176, 0, 0.2)'; ctx.stroke();
+        });
+
+        requestAnimationFrame(drawAstroMap);
+    }
+    drawAstroMap();
+
+    // --- 3. Institutional Gateways ---
+    const gateways = [
+        { id: 'gw-nasa', name: 'NASA Deep Space Net', type: 'ASTRO_TELEMETRY', status: 'OFFLINE', freq: 60.0 },
+        { id: 'gw-rws', name: 'Rijkswaterstaat', type: 'HYDRO_WAVE_DATA', status: 'OFFLINE', freq: 0.110 },
+        { id: 'gw-lnv', name: 'Ministerie LNV', type: 'SOIL_INTEGRITY', status: 'OFFLINE', freq: 557.6 },
+        { id: 'gw-cwi', name: 'CWI Amsterdam', type: 'CRYPTO_MATH_CORE', status: 'OFFLINE', freq: 34.85 },
+        { id: 'gw-surf', name: 'SURFnet Backbone', type: 'OPTICAL_FIBER', status: 'OFFLINE', freq: 192.0 },
+        { id: 'gw-wur', name: 'Wageningen UR', type: 'BIO_RESONANCE', status: 'OFFLINE', freq: 4.5 },
+        { id: 'gw-ai', name: 'VORTEX AI Core', type: 'NEURAL_NLP_MATRIX', status: 'OFFLINE', freq: 18.5 }
+    ];
+
+    const gwListEl = document.getElementById('gateway-list');
+    
+    function renderGateways() {
+        gwListEl.innerHTML = '';
+        gateways.forEach(gw => {
+            const isActive = gw.status === 'CONNECTED';
+            gwListEl.innerHTML += `
+                <div class="gateway-item ${isActive ? 'active' : ''}" id="${gw.id}">
+                    <div class="gateway-info">
+                        <span class="gw-name">${gw.name}</span>
+                        <span class="gw-status">${gw.type} | ${gw.status}</span>
+                    </div>
+                    <button class="btn-connect" onclick="toggleGateway('${gw.id}')">
+                        ${isActive ? 'DISCONNECT' : 'UPLINK'}
+                    </button>
+                </div>
+            `;
+        });
+    }
+
+    // --- 4. Terminal Logger ---
+    function logMsg(msg, type = 'log-data') {
+        const term = document.getElementById('terminal');
+        const time = new Date().toISOString().split('T')[1].slice(0,-1);
+        term.innerHTML += `<div><span class="log-time">[${time}]</span><span class="${type}">${msg}</span></div>`;
+        term.scrollTop = term.scrollHeight;
+    }
+
+    // --- 5. Toggling Institutional Gateways ---
+    function toggleGateway(id) {
+        const gw = gateways.find(g => g.id === id);
+        if(gw.status === 'OFFLINE') {
+            logMsg(`Initiërend handshake protocol met ${gw.name}...`, 'log-sys');
+            setTimeout(() => {
+                gw.status = 'CONNECTED';
+                logMsg(`[VERBONDEN] Data-stroom van ${gw.name} actief op ${gw.freq}kHz.`, 'log-success');
+                playAcousticPing(gw.freq); // Audio Feedback!
+                renderGateways();
+                simulateDataStream(gw);
+                
+                // Add to Astro Map
+                astroNodes.push({
+                    id: gw.id, name: gw.name, freq: gw.freq,
+                    angle: Math.random() * Math.PI * 2,
+                    dist: 50 + Math.random() * 100,
+                    color: '#00e5ff'
+                });
+            }, 800);
+        } else {
+            gw.status = 'OFFLINE';
+            logMsg(`Verbinding met ${gw.name} verbroken.`, 'log-sys');
+            renderGateways();
+            astroNodes = astroNodes.filter(n => n.id !== gw.id); // Remove from Astro map
+        }
+    }
+
+    function simulateDataStream(gw) {
+        if(gw.status !== 'CONNECTED') return;
+        setInterval(() => {
+            if(gw.status !== 'CONNECTED') return;
+            if(Math.random() > 0.75) {
+                let data = "";
+                if(gw.id === 'gw-nasa') data = "Vega Azimuth (161.6°) drift: -0.002°";
+                if(gw.id === 'gw-rws') data = "Waterpeil Nehalennia-zone: +1.2m NAP.";
+                if(gw.id === 'gw-cwi') data = "M_52 Prime geverifieerd. Lucas-Lehmer iteratie = 0.";
+                if(gw.id === 'gw-wur') data = "Bodemvochtigheid Westerheide Laren: 22%.";
+                logMsg(`[${gw.name}] ${data}`, 'log-data');
+            }
+        }, 5000);
+    }
+
+    // --- 6. Custom API & LoRa Beacons ---
+    function buildCustomGateway() {
+        const name = document.getElementById('apiName').value || "Unknown_Node";
+        const type = document.getElementById('apiType').value;
+        const coordsStr = document.getElementById('apiCoords').value;
+        const freq = parseFloat(document.getElementById('apiFreq').value) || 18.5;
+
+        logMsg(`Compileren van nieuwe ${type} gateway: ${name} @ ${freq}kHz...`, 'log-sys');
+
+        let lat = 52.257, lon = 5.214; // Default Laren
+        if(coordsStr.includes(',')) {
+            const parts = coordsStr.split(',');
+            lat = parseFloat(parts[0]); lon = parseFloat(parts[1]);
+        }
+
+        setTimeout(() => {
+            const newId = 'gw-custom-' + Date.now();
+            // Voeg toe aan gateway lijst
+            gateways.push({ id: newId, name: name, type: type, status: 'CONNECTED', freq: freq });
+            renderGateways();
+            
+            // 1. Drop Beacon op Geo Map
+            dropBeacon(lat, lon, name, type, freq);
+            
+            // 2. Voeg toe aan Astro Map
+            astroNodes.push({
+                id: newId, name: name, freq: freq,
+                angle: (161.6 * Math.PI) / 180, // Standaard Gulden As
+                dist: 120,
+                color: '#00ff41' // Groen voor custom nodes
+            });
+
+            // 3. Audio Ping
+            playAcousticPing(freq);
+            logMsg(`[SUCCES] Akoestische vingerafdruk verzonden. Baken geplaatst.`, 'log-audio');
+            logMsg(`[SUCCES] Gateway ${name} online op [${lat.toFixed(3)}, ${lon.toFixed(3)}].`, 'log-success');
+        }, 800);
+    }
+
+    function dropBeacon(lat, lon, name, type, freq) {
+        const isLora = type === 'LoRaWAN';
+        const iconHtml = `<div class="${isLora ? 'lora-marker' : 'beacon-marker'}"></div>`;
+        const customIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [20, 20], iconAnchor: [10, 10] });
+        
+        const marker = L.marker([lat, lon], {icon: customIcon}).addTo(map);
+        marker.bindPopup(`<strong style="color:#000;">${name}</strong><br><span style="color:#666;">Type: ${type}<br>Freq: ${freq} kHz</span>`).openPopup();
+        
+        map.flyTo([lat, lon], 13, { animate: true, duration: 1.5 });
+    }
+
+    // Init
+    renderGateways();
+
+</script>
+</body>
+</html>
