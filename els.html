@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX Modulaire Geometrie</title>
+    <style>
+        body {
+            background-color: #050805;
+            color: #00ff41;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            border: 2px solid #00ff41;
+            padding: 25px;
+            background-color: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            max-width: 800px;
+            width: 100%;
+        }
+        h1 {
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 1px dashed #00ff41;
+            padding-bottom: 10px;
+            text-align: center;
+            width: 100%;
+        }
+        .controls {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: #001100;
+            border: 1px solid #005500;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+        label {
+            font-weight: bold;
+            min-width: 150px;
+        }
+        input[type="range"] {
+            flex-grow: 1;
+            accent-color: #00ff41;
+            cursor: pointer;
+        }
+        .value-display {
+            background: #002200;
+            border: 1px solid #00ff41;
+            padding: 5px 10px;
+            min-width: 50px;
+            text-align: center;
+            font-weight: bold;
+            color: #fff;
+        }
+        canvas {
+            background-color: #010301;
+            border: 1px solid #00ff41;
+            box-shadow: inset 0 0 30px #000;
+            max-width: 100%;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>[ VORTEX Modulaire Geometrie ]</h1>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="modulus">Modulus (Punten):</label>
+            <input type="range" id="modulus" min="10" max="400" step="1" value="100">
+            <div class="value-display" id="modValue">100</div>
+        </div>
+        
+        <div class="control-group">
+            <label for="multiplier">Vermenigvuldiger:</label>
+            <input type="range" id="multiplier" min="2" max="50" step="0.1" value="2">
+            <div class="value-display" id="multValue">2.0</div>
+        </div>
+    </div>
+
+    <canvas id="mathCanvas" width="600" height="600"></canvas>
+</div>
+
+<script>
+    const canvas = document.getElementById('mathCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const modSlider = document.getElementById('modulus');
+    const multSlider = document.getElementById('multiplier');
+    const modValue = document.getElementById('modValue');
+    const multValue = document.getElementById('multValue');
+
+    function draw() {
+        const modulus = parseInt(modSlider.value);
+        const multiplier = parseFloat(multSlider.value);
+
+        // Update UI
+        modValue.textContent = modulus;
+        multValue.textContent = multiplier.toFixed(1);
+
+        // Wis het canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = Math.min(centerX, centerY) - 20;
+
+        // Teken de buitenste cirkel (optioneel, maar helpt voor het kader)
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(0, 255, 65, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Teken de verbindingslijnen
+        // We gebruiken een lage opaciteit zodat overlappende lijnen oplichten
+        ctx.strokeStyle = 'rgba(0, 255, 65, 0.4)';
+        ctx.lineWidth = 1;
+
+        for (let i = 0; i < modulus; i++) {
+            // Bereken hoek voor het startpunt (0 graden bovenaan: -PI/2)
+            const startAngle = (i / modulus) * 2 * Math.PI - Math.PI / 2;
+            
+            // Bereken het doelpunt (i * multiplier) mod modulus
+            const endNode = (i * multiplier) % modulus;
+            const endAngle = (endNode / modulus) * 2 * Math.PI - Math.PI / 2;
+
+            // X en Y coördinaten
+            const startX = centerX + radius * Math.cos(startAngle);
+            const startY = centerY + radius * Math.sin(startAngle);
+            const endX = centerX + radius * Math.cos(endAngle);
+            const endY = centerY + radius * Math.sin(endAngle);
+
+            // Trek de lijn
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+        }
+    }
+
+    // Luister naar veranderingen op de sliders
+    modSlider.addEventListener('input', draw);
+    multSlider.addEventListener('input', draw);
+
+    // Initialiseer de eerste tekening
+    draw();
+</script>
+
+</body>
+</html>
