@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX - Voronoi & Reine Kwint (702 Cents) Datagram</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #050505;
+            color: #e0e0e0;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+        }
+
+        #interface-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(10, 10, 10, 0.85);
+            border: 1px solid #00ff66;
+            padding: 20px;
+            border-radius: 4px;
+            max-width: 400px;
+            box-shadow: 0 0 15px rgba(0, 255, 102, 0.2);
+        }
+
+        h1 {
+            font-size: 16px;
+            color: #00ff66;
+            margin: 0 0 10px 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .status-pane {
+            font-size: 12px;
+            line-height: 1.6;
+            color: #888;
+        }
+
+        .highlight {
+            color: #00ffff;
+            font-weight: bold;
+        }
+
+        .magenta {
+            color: #ff00ff;
+        }
+
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        #audio-prompt {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            background: #00ff66;
+            color: #000;
+            padding: 10px 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            border-radius: 4px;
+            cursor: pointer;
+            z-index: 10;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 255, 102, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 255, 102, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 255, 102, 0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="interface-container">
+        <h1>VORTEX Omni-Bridge // Knooppunten Matrix</h1>
+        <div class="status-pane">
+            <p><strong>Topologie:</strong> Cilindrisch Voronoi- & Delaunay-Veld</p>
+            <p><strong>Akoestische As:</strong> Reine Kwint (<span class="highlight">Ratio 1.5 // 702 Cents</span>)</p>
+            <p><strong>Ruimtelijke Verschuiving:</strong> <span class="magenta">29° NIST-As Helix</span></p>
+            <hr style="border: 0; border-top: 1px solid #222; margin: 15px 0;">
+            <p id="telemetry">Beweeg over het canvas of klik om de akoestische knopen te activeren en de harmonische resonantie te horen.</p>
+        </div>
+    </div>
+
+    <div id="audio-prompt" onclick="initAudio()">Activeer Audio Context</div>
+
+    <canvas id="voronoiCanvas"></canvas>
+
+    <script>
+        // --- Systeem Parameters ---
+        const AANTAL_PUNTEN = 64; // Geïnspireerd op de 64 klokken van Rouen
+        const BASI_FREQ = 234;    // De hypotenusa van het Pythagoras-triple (234 datapunten)
+        const HOEK_RAD = 29 * Math.PI / 180; // 29 graden omgezet naar radialen
+        
+        let audioCtx = null;
+        let punten = [];
+        const canvas = document.getElementById('voronoiCanvas');
+        const ctx = canvas.getContext('2d');
+        const telemetry = document.getElementById('telemetry');
+
+        // Pas canvasgrootte aan bij laden/resizen
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            genereerSysteemPunten();
+            tekenDatagram();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- Web Audio API Initialisatie ---
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                document.getElementById('audio-prompt').style.display = 'none';
+                telemetry.innerHTML = "Audio Context online. Beweeg of klik op een Voronoi-cel voor de 702 cents resonantie.";
+            }
+        }
+
+        // --- Genereren van de Gekantelde Datapunten ---
+        function genereerSysteemPunten() {
+            punten = [];
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            
+            // Genereer punten langs de schroeflijn/helix-projectie onder een hoek van 29 graden
+            for (let i = 0; i < AANTAL_PUNTEN; i++) {
+                // Spiraalvormige distributie vanuit de centrale as
+                const straal = (i + 1) * (Math.min(canvas.width, canvas.height) * 0.45 / AANTAL_PUNTEN);
+                const hoek = i * 0.4 + HOEK_RAD; // Constante rotatie-offset van 29 graden
+                
+                punten.push({
+                    x: cx + Math.cos(hoek) * straal,
+                    y: cy + Math.sin(hoek) * straal,
+                    freq: BASI_FREQ + (i * 3), // Unieke lineaire basisfrequentie per cel
+                    id: i
+                });
+            }
+        }
+
+        // --- Pure Brute-Force Voronoi Berekening per Pixel (Voor Maximale Mathematische Nauwkeurigheid) ---
+        function tekenDatagram() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const breedte = canvas.width;
+            const hoogte = canvas.height;
+            
+            // We scannen het canvas met een lagere resolutie-stap voor vloeiende realtime rendering
+            const stap = 4; 
+            
+            for (let x = 0; x < breedte; x += stap) {
+                for (let y = 0; y < hoogte; y += stap) {
+                    let minAfstand = Infinity;
+                    let dichtstbijzijndePunt = null;
+                    
+                    // Zoek het absolute dichtstbijzijnde ankerpunt (Voronoi conditie)
+                    for (let i = 0; i < punten.length; i++) {
+                        const dx = x - punten[i].x;
+                        const dy = y - punten[i].y;
+                        const afst = dx * dx + dy * dy; // Kwadratische afstand is sneller
+                        
+                        if (afst < minAfstand) {
+                            minAfstand = afst;
+                            dichtstbijzijndePunt = punten[i];
+                        }
+                    }
+                    
+                    if (dichtstbijzijndePunt) {
+                        // Ken een kleurintensiteit toe op basis van het ID en de elementen-matrix
+                        const hue = (dichtstbijzijndePunt.id * 5 + 120) % 360; // Verschuivend spectrum
+                        ctx.fillStyle = `hsla(${hue}, 70%, 15%, 0.15)`;
+                        ctx.fillRect(x, y, stap, stap);
+                    }
+                }
+            }
+
+            // --- Teken de Delaunay-Verbindingslijnen (De Duale Mesh) ---
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.15)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < punten.length; i++) {
+                for (let j = i + 1; j < punten.length; j++) {
+                    const dx = punten[i].x - punten[j].x;
+                    const dy = punten[i].y - punten[j].y;
+                    const afst = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Verbind buren binnen een harmonische straal om de mesh te spannen
+                    if (afst < 160) {
+                        ctx.beginPath();
+                        ctx.moveTo(punten[i].x, punten[i].y);
+                        ctx.lineTo(punten[j].x, punten[j].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // --- Teken de Ankerpunten (Seeds) ---
+            punten.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 4, 0, 2 * Math.PI);
+                ctx.fillStyle = '#00ff66';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#00ff66';
+                ctx.fill();
+                ctx.shadowBlur = 0; // Reset
+            });
+        }
+
+        // --- Akoestische Toon Activatie (Reine Kwint Synthese) ---
+        function activeerCelAkoestiek(x, y) {
+            if (!audioCtx) return;
+
+            // Vind de actieve cel
+            let minAfstand = Infinity;
+            let actiefPunt = null;
+
+            punten.forEach(p => {
+                const dx = x - p.x;
+                const dy = y - p.y;
+                const afst = dx * dx + dy * dy;
+                if (afst < minAfstand) {
+                    minAfstand = afst;
+                    actiefPunt = p;
+                }
+            });
+
+            if (actiefPunt) {
+                const f0 = actiefPunt.freq;
+                const f1 = f0 * 1.5; // Exact 1.5 verhouding = Reine Kwint (+702 Cents)
+
+                // Update Telemetry paneel
+                telemetry.innerHTML = `Actief Knooppunt: <span class="highlight">ID ${actiefPunt.id}</span><br>` +
+                                      `Grondtoon (f0): <span>${f0.toFixed(2)} Hz</span><br>` +
+                                      `Reine Kwint (f1): <span class="highlight">${f1.toFixed(2)} Hz (+702 Cents)</span>`;
+
+                speelKwintKnoop(f0, f1);
+            }
+        }
+
+        function speelKwintKnoop(f0, f1) {
+            const nu = audioCtx.currentTime;
+            
+            // Master Gain om clippen te voorkomen
+            const masterGain = audioCtx.createGain();
+            masterGain.gain.setValueAtTime(0.25, nu);
+            masterGain.gain.exponentialRampToValueAtTime(0.001, nu + 2.5);
+            masterGain.connect(audioCtx.destination);
+
+            // 1. De Grondtoon Oscillator
+            const osc0 = audioCtx.createOscillator();
+            osc0.type = 'sine';
+            osc0.frequency.setValueAtTime(f0, nu);
+            osc0.connect(masterGain);
+
+            // 2. De Reine Kwint Boventoon Oscillator (702 cents verschuiving)
+            const osc1 = audioCtx.createOscillator();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(f1, nu);
+            osc1.connect(masterGain);
+
+            // Start en stop beide oscillatoren synchroon
+            osc0.start(nu);
+            osc1.start(nu);
+            osc0.stop(nu + 2.6);
+            osc1.stop(nu + 2.6);
+        }
+
+        // --- Event Listeners voor Interactie ---
+        window.addEventListener('mousemove', (e) => {
+            // Geoptimaliseerde telemetry update bij mousemove
+            if (audioCtx && Math.random() < 0.15) { 
+                activeerCelAkoestiek(e.clientX, e.clientY);
+            }
+        });
+
+        window.addEventListener('click', (e) => {
+            initAudio();
+            activeerCelAkoestiek(e.clientX, e.clientY);
+        });
+
+        // Start het systeem
+        resizeCanvas();
+    </script>
+</body>
+</html>
