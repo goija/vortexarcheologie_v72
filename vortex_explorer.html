@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VORTEX v110.27 // B(6) EXPLORER & SHEAF ENGINE</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #050505;
+            color: #ffffff;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* HUD Interface Styling */
+        #hud-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 320px;
+            height: 100vh;
+            background: rgba(5, 5, 5, 0.85);
+            border-right: 1px solid #00f3ff33;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        h1 {
+            font-size: 14px;
+            color: #00f3ff;
+            margin: 0 0 20px 0;
+            letter-spacing: 1px;
+        }
+
+        .section {
+            margin-bottom: 25px;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        .label {
+            color: #00f3ff;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .value {
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        /* Controls */
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-size: 10px;
+            color: #00f3ff;
+            margin-bottom: 5px;
+        }
+        input[type=range] {
+            width: 100%;
+            background: #222;
+            accent-color: #00f3ff;
+        }
+
+        button {
+            background: transparent;
+            border: 1px solid #00f3ff;
+            color: #00f3ff;
+            padding: 8px 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #00f3ff;
+            color: #050505;
+            box-shadow: 0 0 10px #00f3ff77;
+        }
+
+        #terminal-log {
+            font-size: 9px;
+            color: #00ffaa;
+            height: 120px;
+            overflow-y: auto;
+            border-top: 1px solid #00ffaa33;
+            padding-top: 10px;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        #audio-prompt {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 0, 85, 0.2);
+            border: 1px solid #ff0055;
+            padding: 10px;
+            font-size: 11px;
+            color: #ff0055;
+            z-index: 100;
+            pointer-events: none;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="audio-prompt">KLIK OP HET SCHERM OM AUDIO TE ACTIVEREN</div>
+
+    <div id="hud-container">
+        <div>
+            <h1>VORTEX v110.27 // B(6) EXPLORER</h1>
+            
+            <div class="section">
+                <div class="label">B(6) SHL PARTITIE</div>
+                <div class="value">DIMENSIE: 6D (64 Knooppunten)</div>
+                <div class="value">Y-AS: Hamming-gewicht (1's)</div>
+                <div class="value">X/Z-VLAK: SHL Equivalente Orbits</div>
+            </div>
+
+            <div class="section">
+                <div class="label">RUIMTELIJKE SPREIDING</div>
+                <div class="control-group">
+                    <label>Verticale Spreiding (Y-As)</label>
+                    <input type="range" id="y-spread" min="0.5" max="3" step="0.1" value="1.5">
+                </div>
+                <div class="control-group">
+                    <label>Ring Spreiding (Orbits)</label>
+                    <input type="range" id="ring-spread" min="0.5" max="3" step="0.1" value="1.2">
+                </div>
+                <button id="btn-rotation">AUTOMATISCHE 3D ROTATIE: AAN</button>
+                <button id="btn-trigger-sound">TRIGGER MATRIX RESONANTIE</button>
+            </div>
+        </div>
+
+        <div id="terminal-log">
+            > VORTEX 110.27 ONLINE...<br>
+            > B(6) HEXERACT GEGENEREERD...<br>
+            > HAMMING-WEIGHT GELAAGDHEID BEREKEND...<br>
+            > WEB AUDIO API SHEAF ENGINE KLAAR...<br>
+            > 192 RIBBEN VERBONDEN.
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        // =====================================================================
+        // 1. WEB AUDIO API - RESONANTIE MATRIX (SHEAF ENGINE)
+        // =====================================================================
+        let audioCtx = null;
+
+        const basisFreq = 440.0; // Node 144 (A4)
+        const intervallen = [0, 4, 5, 7, 14]; // Root, Terts, Kwart, Kwint, None
+        const kleurenPalet = ['#ffffff', '#ffdd66', '#ff9900', '#ff0055', '#b600ff', '#6600ff', '#3300cc'];
+
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            document.getElementById('audio-prompt').style.display = 'none';
+            logTerminal("WEB AUDIO API GEACTIVEERD. ENGINE SYNC.");
+        }
+
+        function speelHarmonischeResonantie() {
+            if (!audioCtx) initAudio();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const nu = audioCtx.currentTime;
+            
+            // Genereer de harmonischen gebaseerd op de matrix-instellingen
+            intervallen.forEach((interval, i) => {
+                const freq = basisFreq * Math
