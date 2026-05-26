@@ -3,445 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>[VORTEX] SHEAF ENGINE - INDEX DASHBOARD</title>
+    <title>Project Nexus & Vortex Gateway</title>
     <style>
         :root {
-            --bg-color: #050505;
-            --panel-bg: #0a0a0a;
-            --cyan: #00f3ff;
-            --neon-green: #00ffaa;
-            --magenta: #ff0055;
-            --orange: #ff9900;
-            --purple: #b600ff;
-            --yellow: #ffff00;
-            --text-color: #ffffff;
-            --dim-gray: #222222;
+            --bg-color: #0d1117;
+            --text-color: #c9d1d9;
+            --accent-color: #58a6ff;
+            --card-bg: #161b22;
+            --border-color: #30363d;
         }
-
         body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
-            color: var(--cyan);
-            font-family: 'Courier New', Courier, monospace;
+            color: var(--text-color);
             margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            user-select: none;
+            padding: 40px 20px;
         }
-
-        #container {
-            width: 100%;
-            max-width: 1300px;
-            border: 1px solid var(--cyan);
-            background-color: var(--panel-bg);
-            padding: 20px;
-            box-shadow: 0 0 25px rgba(0, 243, 255, 0.15);
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
         }
-
-        /* Navigatiebalk bovenin */
-        nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--cyan);
-            padding-bottom: 15px;
-            margin-bottom: 20px;
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
         }
-
-        .nav-links {
-            display: flex;
-            gap: 20px;
+        h1 {
+            color: #fff;
+            margin-bottom: 10px;
         }
-
-        .nav-links a {
-            color: var(--text-color);
-            text-decoration: none;
-            padding: 5px 10px;
-            border: 1px solid transparent;
-            transition: all 0.2s;
+        .subtitle {
+            color: #8b949e;
+            font-size: 1.1rem;
         }
-
-        .nav-links a.active, .nav-links a:hover {
-            border: 1px solid var(--cyan);
-            background: rgba(0, 243, 255, 0.1);
-            color: var(--cyan);
-            box-shadow: 0 0 8px rgba(0, 243, 255, 0.3);
-        }
-
-        .system-time {
-            color: var(--neon-green);
-            font-size: 14px;
-        }
-
-        /* HUD Header */
-        #hud-header {
-            white-space: pre-wrap;
-            margin-bottom: 20px;
-            line-height: 1.4;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 15px;
-            border-left: 4px solid var(--cyan);
-        }
-
-        /* Hoofdsectie Layout: Drie kolommen voor optimale link mapping */
-        main {
+        .grid {
             display: grid;
-            grid-template-columns: 280px 1fr 340px;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
         }
-
-        /* Panel Styling */
-        .panel {
-            border: 1px solid rgba(0, 243, 255, 0.3);
-            background: #070707;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
+        .category-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 20px;
         }
-
-        .panel-title {
+        .category-card h2 {
+            color: #fff;
+            font-size: 1.3rem;
             margin-top: 0;
-            font-size: 13px;
-            letter-spacing: 1px;
-            border-bottom: 1px dashed rgba(0, 243, 255, 0.3);
-            padding-bottom: 5px;
-            color: var(--text-color);
-            text-transform: uppercase;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
         }
-
-        /* Link-lijsten (Linkerkolom) */
-        .link-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-top: 10px;
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
         }
-
-        .vortex-link {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #111;
-            border: 1px solid rgba(0, 243, 255, 0.4);
-            color: var(--text-color);
+        li {
+            margin-bottom: 10px;
+        }
+        a {
+            color: var(--accent-color);
             text-decoration: none;
-            padding: 8px 12px;
-            font-size: 11px;
-            transition: all 0.2s;
+            word-break: break-all;
+            display: inline-block;
+            transition: transform 0.1s ease;
         }
-
-        .vortex-link:hover {
-            background: rgba(0, 243, 255, 0.15);
-            border-color: var(--cyan);
-            box-shadow: 0 0 8px rgba(0, 243, 255, 0.3);
-            color: var(--cyan);
+        a:hover {
+            text-decoration: underline;
+            transform: translateX(3px);
         }
-
-        .vortex-link.critical {
-            border-left: 4px solid var(--magenta);
-        }
-        
-        .vortex-link.audio-node {
-            border-left: 4px solid var(--purple);
-            background: rgba(182, 0, 255, 0.05);
-        }
-
-        .link-tag {
-            font-size: 9px;
-            color: var(--neon-green);
-            background: rgba(0, 255, 170, 0.1);
-            padding: 2px 5px;
-            border-radius: 2px;
-        }
-
-        /* Canvas (Middelste kolom) */
-        .canvas-section {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        canvas {
-            background-color: #030303;
-            border: 1px solid rgba(0, 243, 255, 0.2);
-            cursor: pointer;
-        }
-
-        /* Node trigger knoppen (Rechterkolom) */
-        .node-btn {
-            background: #111;
-            border: 1px solid var(--cyan);
-            color: var(--text-color);
-            padding: 9px;
-            width: 100%;
-            margin-bottom: 8px;
-            text-align: left;
-            font-family: 'Courier New', Courier, monospace;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            font-size: 11px;
-        }
-
-        .node-btn:hover {
-            background: rgba(0, 243, 255, 0.15);
-        }
-
-        #btn-144 { border-left: 5px solid var(--magenta); }
-        #btn-148 { border-left: 5px solid var(--orange); }
-        #btn-149 { border-left: 5px solid var(--neon-green); }
-        #btn-151 { border-left: 5px solid var(--purple); }
-        #btn-158 { border-left: 5px solid var(--yellow); }
-
-        #sys-log {
-            height: 120px;
-            background: #020202;
-            border: 1px solid #222;
-            padding: 10px;
-            overflow-y: auto;
-            font-size: 11px;
-            color: #888;
-        }
-
-        .log-entry { margin-bottom: 4px; }
-        .log-entry.success { color: var(--neon-green); }
-        .log-entry.trigger { color: var(--cyan); }
-
         footer {
-            margin-top: 20px;
-            font-size: 11px;
-            color: rgba(0, 243, 255, 0.4);
-            display: flex;
-            justify-content: space-between;
-            border-top: 1px dashed rgba(0, 243, 255, 0.2);
-            padding-top: 10px;
+            text-align: center;
+            margin-top: 50px;
+            color: #8b949e;
+            font-size: 0.9rem;
         }
     </style>
 </head>
 <body>
 
-<div id="container">
-    <nav>
-        <div class="nav-links">
-            <a href="#" class="active">CORE_ENGINE</a>
-            <a href="vortext_sound.html">AUDIO_SPECTRUM</a>
-            <a href="vortex_matrix_gateway.html">MATRIX_GATEWAY</a>
-            <a href="dashboardv4.html">HUD_DASHBOARD</a>
-        </div>
-        <div class="system-time" id="live-clock">SYS_TIME: 00:00:00</div>
-    </nav>
+<div class="container">
+    <header>
+        <h1>Repository Index</h1>
+        <p class="subtitle">Centrale gateway voor alle modules, dashboards en rekenmodellen</p>
+    </header>
 
-    <div id="hud-header">[VORTEX] SHEAF ENGINE v1.0.8-manifold
-GRID: 13x18 (234 Discrete Nodes)
-RESONANTIE: 90 / 216 / 234 -> [<span style="color: var(--neon-green)">ADD4</span> & <span style="color: var(--yellow)">ADD9</span> MERGE]
-GOUDEN AS: <span style="color: var(--magenta); font-weight: bold;">Node 144</span>
-STATUS: <span id="engine-status" style="color: var(--neon-green);">[READY] Netwerk gekoppeld aan lokale repository gateways.</span></div>
-
-    <main>
-        <div class="panel">
-            <h3 class="panel-title">Repository Links</h3>
-            <div class="link-list">
-                <a href="vortext_sound.html" class="vortex-link audio-node">
-                    <span>🔊 VORTEX SOUND CORE</span>
-                    <span class="link-tag">AUDIO</span>
-                </a>
-                <a href="702cents.html" class="vortex-link audio-node">
-                    <span>🎛️ 702 CENTS ENGINE</span>
-                    <span class="link-tag">A_MOD</span>
-                </a>
-                
-                <a href="vortex_matrix_gateway.html" class="vortex-link critical">
-                    <span>⚡ MATRIX GATEWAY v1.1</span>
-                    <span class="link-tag">GATE</span>
-                </a>
-                <a href="vortex_master_nexus.html" class="vortex-link">
-                    <span>🎚️ MASTER NEXUS CORE</span>
-                    <span class="link-tag">NEXUS</span>
-                </a>
-                <a href="VORTEX%20v102%20__%20DUAL-SPECTRUM%20SCANNER.html" class="vortex-link">
-                    <span>📡 DUAL-SPECTRUM SCAN</span>
-                    <span class="link-tag">SCAN</span>
-                </a>
-                <a href="VORTEX%20v105%20__%20LIDIT-FASE%20MASTER.html" class="vortex-link">
-                    <span>🔮 LIDIT-FASE MASTER</span>
-                    <span class="link-tag">FASE</span>
-                </a>
-                <a href="vortex_cardioide.html" class="vortex-link">
-                    <span>🌀 CARDIOIDE MATRIX</span>
-                    <span class="link-tag">GEOM</span>
-                </a>
-                <a href="hexeractv1.html" class="vortex-link">
-                    <span>📦 HEXERACT ENGINE v1</span>
-                    <span class="link-tag">4D</span>
-                </a>
-            </div>
+    <div class="grid">
+        
+        <div class="category-card">
+            <h2>🌀 Vortex Master & Gateways</h2>
+            <ul>
+                <li><a href="vortex_matrix_gateway.html">vortex_matrix_gateway.html</a></li>
+                <li><a href="VORTEX MATRIX GATEWAY v1.1.0 (DUAL-DOMAIN).html">VORTEX MATRIX GATEWAY v1.1.0 (DUAL-DOMAIN).html</a></li>
+                <li><a href="VORTEX MATRIX GATEWAY v1.1.0 (fra1::2r2vg-1775727349013-9735a4537dc5).html">VORTEX MATRIX GATEWAY v1.1.0 (fra1...)</a></li>
+                <li><a href="vortex_master_nexus.html">vortex_master_nexus.html</a></li>
+                <li><a href="vortex_master_nexus.htm">vortex_master_nexus.htm</a></li>
+                <li><a href="vortex_nexus_master.html">vortex_nexus_master.html</a></li>
+                <li><a href="vortex_master_v106.html">vortex_master_v106.html</a></li>
+                <li><a href="vortex_master_v107.html">vortex_master_v107.html</a></li>
+                <li><a href="vortex_master_v36_fix(3).html">vortex_master_v36_fix(3).html</a></li>
+                <li><a href="vortex_marsoulas_master.html">vortex_marsoulas_master.html</a></li>
+            </ul>
         </div>
 
-        <div class="canvas-section">
-            <canvas id="sheafCanvas" width="580" height="490"></canvas>
+        <div class="category-card">
+            <h2>🔍 Vortex Scanners & Audio</h2>
+            <ul>
+                <li><a href="master_vortexv1.html">master_vortexv1.html</a></li>
+                <li><a href="master_vortexv2.html">master_vortexv2.html</a></li>
+                <li><a href="master_vortexv3.html">master_vortexv3.html</a></li>
+                <li><a href="master_vortexv4.html">master_vortexv4.html</a></li>
+                <li><a href="VORTEX v102 __ DUAL-SPECTRUM SCANNER.html">VORTEX v102 __ DUAL-SPECTRUM SCANNER.html</a></li>
+                <li><a href="VORTEX v105 __ LIDIT-FASE MASTER.html">VORTEX v105 __ LIDIT-FASE MASTER.html</a></li>
+                <li><a href="vortexar v108.html">vortexar v108.html</a></li>
+                <li><a href="vortexsho108.html">vortexsho108.html</a></li>
+                <li><a href="vortexarcheologie_v72.html">vortexarcheologie_v72.html</a></li>
+                <li><a href="vortext_sound.html">vortext_sound.html</a></li>
+            </ul>
         </div>
 
-        <div class="sidebar">
-            <div class="panel">
-                <h3 class="panel-title">Resonantie Triggers</h3>
-                <button class="node-btn" id="btn-144" onclick="triggerResonance(144, 440.00)">
-                    <span>Gouden As (N144)</span> <span>440.00 Hz</span>
-                </button>
-                <button class="node-btn" id="btn-148" onclick="triggerResonance(148, 554.37)">
-                    <span>Terts (N148)</span> <span>554.37 Hz</span>
-                </button>
-                <button class="node-btn" id="btn-149" onclick="triggerResonance(149, 587.33)">
-                    <span>add4 Kwart (N149)</span> <span>587.33 Hz</span>
-                </button>
-                <button class="node-btn" id="btn-151" onclick="triggerResonance(151, 659.25)">
-                    <span>Reine Kwint (N151)</span> <span>659.25 Hz</span>
-                </button>
-                <button class="node-btn" id="btn-158" onclick="triggerResonance(158, 987.77)">
-                    <span>add9 None (N158)</span> <span>987.77 Hz</span>
-                </button>
-                <button class="node-btn" style="margin-top:5px; border-color:#fff; text-align:center; justify-content:center;" onclick="triggerFullChord()">
-                    FIRE HARMONIC OVERLAY MATRIX
-                </button>
-            </div>
-
-            <div class="panel">
-                <h3 class="panel-title">System Log</h3>
-                <div id="sys-log">
-                    <div class="log-entry success">[OK] Sheaf Core v1.0.8 online.</div>
-                    <div class="log-entry success">[OK] Mapping links naar local repository voltooid.</div>
-                    <div class="log-entry">[SYS] Web Audio API operationeel.</div>
-                </div>
-            </div>
+        <div class="category-card">
+            <h2>📊 Dashboards & Analytics</h2>
+            <ul>
+                <li><a href="dashboardv1.html">dashboardv1.html</a></li>
+                <li><a href="dashboardv2.html">dashboardv2.html</a></li>
+                <li><a href="dashboardv3.html">dashboardv3.html</a></li>
+                <li><a href="dashboardv4.html">dashboardv4.html</a></li>
+            </ul>
         </div>
-    </main>
+
+        <div class="category-card">
+            <h2>🧮 Rekenen & Calculators</h2>
+            <ul>
+                <li><a href="rekenen.html">rekenen.html</a></li>
+                <li><a href="rekenen1.html">rekenen1.html</a></li>
+                <li><a href="rekenen2.html">rekenen2.html</a></li>
+                <li><a href="rekenen3.html">rekenen3.html</a></li>
+                <li><a href="rekenen4.html">rekenen4.html</a></li>
+                <li><a href="rekenen5.html">rekenen5.html</a></li>
+                <li><a href="rekenen6.html">rekenen6.html</a></li>
+                <li><a href="rekenen7.html">rekenen7.html</a></li>
+                <li><a href="vortex_b6_partitie.html">vortex_b6_partitie.html</a></li>
+                <li><a href="vortex_cardioide.html">vortex_cardioide.html</a></li>
+                <li><a href="vortex_lithos_calculator.html">vortex_lithos_calculator.html</a></li>
+            </ul>
+        </div>
+
+        <div class="category-card">
+            <h2>💎 Geometrie, Tesseract & Enc-Dec</h2>
+            <ul>
+                <li><a href="hexeractv1.html">hexeractv1.html</a></li>
+                <li><a href="hexeract404.html">hexeract404.html</a></li>
+                <li><a href="tesseractv1.html">tesseractv1.html</a></li>
+                <li><a href="betegeling.html">betegeling.html</a></li>
+                <li><a href="enc-dec.html">enc-dec.html</a></li>
+                <li><a href="enc-decrechts.html">enc-decrechts.html</a></li>
+                <li><a href="els.html">els.html</a></li>
+            </ul>
+        </div>
+
+        <div class="category-card">
+            <h2>📁 Recente toevoegingen & Overig</h2>
+            <ul>
+                <li><a href="gemini-code-1779765188717.html">gemini-code-1779765188717.html</a> <small style="color: #56d364;">(Nieuw)</small></li>
+                <li><a href="702cents.html">702cents.html</a></li>
+            </ul>
+        </div>
+
+    </div>
 
     <footer>
-        <span>ENGINE CONFIG: LOCAL MANIFOLD</span>
-        <span>VORTEX GATEWAY SUBSYSTEM // RUNNING</span>
+        <p>Laatst bijgewerkt: zojuist</p>
     </footer>
 </div>
 
-<script>
-    // 1. Live Klok en Logger
-    function updateClock() {
-        const now = new Date();
-        document.getElementById('live-clock').innerText = `SYS_TIME: ${now.toTimeString().split(' ')[0]}`;
-    }
-    setInterval(updateClock, 1000); updateClock();
-
-    function logMessage(text, type = '') {
-        const log = document.getElementById('sys-log');
-        const entry = document.createElement('div');
-        entry.className = `log-entry ${type}`;
-        entry.innerText = `[${new Date().toTimeString().split(' ')[0]}] ${text}`;
-        log.appendChild(entry); log.scrollTop = log.scrollHeight;
-    }
-
-    // 2. Mesh Rendering (18x13 Grid)
-    const canvas = document.getElementById('sheafCanvas');
-    const ctx = canvas.getContext('2d');
-    const cols = 18; const rows = 13; const padding = 25;
-    const spacingX = (canvas.width - padding * 2) / (cols - 1);
-    const spacingY = (canvas.height - padding * 2) / (rows - 1);
-    const nodes = [];
-
-    for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-            nodes.push({ id: r * cols + c, x: padding + c * spacingX, y: padding + r * spacingY });
-        }
-    }
-
-    const activeNodes = {
-        144: { color: '#ff0055', freq: 440.00 },
-        148: { color: '#ff9900', freq: 554.37 },
-        149: { color: '#00ef55', freq: 587.33 },
-        151: { color: '#b600ff', freq: 659.25 },
-        158: { color: '#ffff00', freq: 987.77 }
-    };
-
-    function drawNetwork() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = 'rgba(0, 243, 255, 0.15)'; ctx.lineWidth = 0.5;
-        
-        for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < cols; c++) {
-                let idx = r * cols + c;
-                if (c < cols - 1) drawLine(nodes[idx], nodes[idx + 1]);
-                if (r < rows - 1) drawLine(nodes[idx], nodes[idx + cols]);
-                if (c < cols - 1 && r < rows - 1) {
-                    drawLine(nodes[idx], nodes[idx + cols + 1]);
-                    drawLine(nodes[idx + 1], nodes[idx + cols]);
-                }
-            }
-        }
-
-        nodes.forEach(node => {
-            if (activeNodes[node.id]) return;
-            ctx.fillStyle = 'rgba(0, 255, 170, 0.3)'; ctx.beginPath();
-            ctx.arc(node.x, node.y, 1.8, 0, Math.PI * 2); ctx.fill();
-        });
-
-        for (let id in activeNodes) {
-            let node = nodes[id]; let data = activeNodes[id];
-            ctx.shadowBlur = 10; ctx.shadowColor = data.color;
-            ctx.fillStyle = data.color; ctx.beginPath();
-            ctx.arc(node.x, node.y, 5.5, 0, Math.PI * 2); ctx.fill();
-            ctx.shadowBlur = 0; ctx.strokeStyle = '#fff'; ctx.stroke();
-            ctx.fillStyle = '#fff'; ctx.font = '9px monospace';
-            ctx.fillText(`N${id}`, node.x + 8, node.y + 3);
-        }
-    }
-
-    function drawLine(p1, p2) {
-        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
-    }
-
-    canvas.addEventListener('click', function(e) {
-        const rect = canvas.getBoundingClientRect();
-        const mX = e.clientX - rect.left; const mY = e.clientY - rect.top;
-        for (let id in activeNodes) {
-            if (Math.hypot(nodes[id].x - mX, nodes[id].y - mY) < 12) {
-                triggerResonance(id, activeNodes[id].freq); break;
-            }
-        }
-    });
-
-    // 3. Audio Context
-    let audioCtx = null;
-    function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-
-    function triggerResonance(nodeId, freq) {
-        initAudio();
-        document.getElementById('engine-status').innerText = `[RESONANCE] Node ${nodeId} zendt signaal uit op ${freq} Hz`;
-        document.getElementById('engine-status').style.color = activeNodes[nodeId].color;
-        logMessage(`Trigger: Node ${nodeId} op ${freq}Hz`, 'trigger');
-
-        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-        osc.type = 'sine'; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + 1.2);
-    }
-
-    function triggerFullChord() {
-        initAudio();
-        logMessage("MASTER BURST: Alle spectrale modules reageren synchroon.", "success");
-        for (let id in activeNodes) {
-            const freq = activeNodes[id].freq;
-            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-            osc.type = 'sine'; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0, audioCtx.currentTime);
-            gain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.08);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.8);
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + 1.8);
-        }
-    }
-
-    drawNetwork();
-</script>
 </body>
 </html>
