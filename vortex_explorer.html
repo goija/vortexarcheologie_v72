@@ -199,4 +199,223 @@
             
             // Genereer de harmonischen gebaseerd op de matrix-instellingen
             intervallen.forEach((interval, i) => {
-                const freq = basisFreq * Math
+                const freq = basisFreq * Math.pow(2, interval / 12);
+                
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                // Mix van golfvormen voor een glitchy, cyberpunk klank
+                osc.type = i % 2 === 0 ? 'sine' : 'triangle';
+                osc.frequency.setValueAtTime(freq, nu);
+                
+                // Volume envelope (Attak / Decay) om een 'ping' te genereren
+                gainNode.gain.setValueAtTime(0.0, nu);
+                gainNode.gain.linearRampToValueAtTime(0.15, nu + 0.05);
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, nu + 1.5 + (i * 0.2));
+                
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                osc.start(nu);
+                osc.stop(nu + 2.0 + (i * 0.2));
+            });
+
+            logTerminal("RESONANTIE INJECTIE: [ADD4 & ADD9 MATRIX MERGE]");
+        }
+
+        function logTerminal(text) {
+            const log = document.getElementById('terminal-log');
+            log.innerHTML += `<br>> ${text}`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // =====================================================================
+        // 2. THREE.JS 3D INITIALISATIE & HYPERKUBUS GENERATIE
+        // =====================================================================
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050505);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(5, 5, 8);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Genereren van de 6D Hyperkubus data (64 Nodes)
+        const nodes = [];
+        const dim = 6;
+        const numNodes = Math.pow(2, dim);
+
+        // UI Sliders & State
+        let ySpread = 1.5;
+        let ringSpread = 1.2;
+        let autoRotate = true;
+
+        for (let i = 0; i < numNodes; i++) {
+            // Verkrijg de binaire representatie (6 bits)
+            const bitstring = i.toString(2).padStart(dim, '0');
+            // Bereken het Hamming-gewicht (aantal enen)
+            const hammingGewicht = (bitstring.match(/1/g) || []).length;
+            nodes.push({
+                id: i,
+                bitstring: bitstring,
+                gewicht: hammingGewicht,
+                basePos: new THREE.Vector3() // Wordt hieronder berekend
+            });
+        }
+
+        // Bereken positie op basis van Hamming-gewicht (Y) en Orbit Ring (X/Z)
+        const countersPerLayer = {};
+        nodes.forEach(node => {
+            const g = node.gewicht;
+            if (!countersPerLayer[g]) countersPerLayer[g] = 0;
+            countersPerLayer[g]++;
+        });
+
+        const currentCounter = Array(dim + 1).fill(0);
+        nodes.forEach(node => {
+            const g = node.gewicht;
+            const totaalInLaag = countersPerLayer[g];
+            const indexInLaag = currentCounter[g]++;
+            
+            // Verdeel de punten in deze laag over een cirkel om orbits te simuleren
+            const theta = (indexInLaag / totaalInLaag) * Math.PI * 2;
+            const radius = 1.0 + 0.2 * Math.pow(g - 3, 2); // Schaal straal op basis van laag
+
+            node.angle = theta;
+            node.radius = radius;
+        });
+
+        // Grafische objecten groeperen
+        const graphGroup = new THREE.Group();
+        scene.add(graphGroup);
+
+        // Aanmaken van de Nodes (3D Spheres)
+        const nodeElements = [];
+        const sphereGeo = new THREE.SphereGeometry(0.08, 16, 16);
+
+        nodes.forEach(node => {
+            const mat = new THREE.MeshBasicMaterial({
+                color: kleurenPalet[node.gewicht],
+                transparent: true,
+                opacity: 0.9
+            });
+            const sphere = new THREE.Mesh(sphereGeo, mat);
+            graphGroup.add(sphere);
+            nodeElements.push({ mesh: sphere, data: node });
+        });
+
+        // Aanmaken van de 192 Ribben (Edges op basis van Hamming afstand = 1)
+        const lineMaterial = new THREE.LineBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.08
+        });
+
+        const edgePairs = [];
+        for (let i = 0; i < numNodes; i++) {
+            for (let j = i + 1; j < numNodes; j++) {
+                // Tel bitverschillen
+                let verschillen = 0;
+                for (let b = 0; b < dim; b++) {
+                    if (nodes[i].bitstring[b] !== nodes[j].bitstring[b]) verschillen++;
+                }
+                // Als de Hamming-afstand exact 1 is, zijn ze verbonden in de hyperkubus
+                if (verschillen === 1) {
+                    edgePairs.push({ from: i, to: j });
+                }
+            }
+        }
+
+        // Maak de line-geometrie aan die we dynamisch gaan updaten
+        const linePositions = new Float32Array(edgePairs.length * 2 * 3);
+        const lineGeo = new THREE.BufferGeometry();
+        lineGeo.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+        const lineSegments = new THREE.LineSegments(lineGeo, lineMaterial);
+        graphGroup.add(lineSegments);
+
+        // Dynamische update functie voor posities op basis van HUD sliders
+        function updatePositions() {
+            // Update Nodes
+            nodeElements.forEach(el => {
+                const d = el.data;
+                const x = Math.cos(d.angle) * d.radius * ringSpread;
+                const z = Math.sin(d.angle) * d.radius * ringSpread;
+                const y = (d.gewicht - (dim / 2)) * ySpread; // Gecentreerd rond de oorsprong
+                
+                el.mesh.position.set(x, y, z);
+            });
+
+            // Update Ribben
+            const posAttr = lineGeo.getAttribute('position');
+            let idx = 0;
+            edgePairs.forEach(edge => {
+                const p1 = nodeElements[edge.from].mesh.position;
+                const p2 = nodeElements[edge.to].mesh.position;
+
+                posAttr.setXYZ(idx++, p1.x, p1.y, p1.z);
+                posAttr.setXYZ(idx++, p2.x, p2.y, p2.z);
+            });
+            posAttr.needsUpdate = true;
+        }
+
+        // =====================================================================
+        // 3. INTERACTIE & EVENT LISTENERS
+        // =====================================================================
+        window.addEventListener('click', () => {
+            initAudio();
+        });
+
+        document.getElementById('btn-trigger-sound').addEventListener('click', (e) => {
+            e.stopPropagation(); // Voorkom dubbele trigger via window click
+            speelHarmonischeResonantie();
+        });
+
+        const rotBtn = document.getElementById('btn-rotation');
+        rotBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            autoRotate = !autoRotate;
+            rotBtn.innerText = `AUTOMATISCHE 3D ROTATIE: ${autoRotate ? 'AAN' : 'UIT'}`;
+        });
+
+        document.getElementById('y-spread').addEventListener('input', (e) => {
+            ySpread = parseFloat(e.target.value);
+        });
+
+        document.getElementById('ring-spread').addEventListener('input', (e) => {
+            ringSpread = parseFloat(e.target.value);
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // =====================================================================
+        // 4. ANIMATIE LOOP
+        // =====================================================================
+        function animate() {
+            requestAnimationFrame(animate);
+
+            updatePositions();
+
+            if (autoRotate) {
+                graphGroup.rotation.y += 0.003;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Start het systeem
+        animate();
+    </script>
+</body>
+</html>
