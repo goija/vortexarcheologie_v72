@@ -12,74 +12,117 @@
             --card-bg: #161b22;
             --border-color: #30363d;
         }
+        
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            padding: 40px 20px;
+            padding: 20px 15px; /* Iets compactere padding voor mobiel */
         }
+
         .container {
             max-width: 1000px;
             margin: 0 auto;
         }
+
         header {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
             border-bottom: 1px solid var(--border-color);
             padding-bottom: 20px;
         }
+
         h1 {
             color: #fff;
             margin-bottom: 10px;
+            font-size: 1.8rem; /* Schaalbaar op mobiel */
         }
+
         .subtitle {
             color: #8b949e;
-            font-size: 1.1rem;
+            font-size: 1rem;
+            margin: 0;
+            padding: 0 10px;
         }
+
+        /* Responsive Grid: 1 kolom op mobiel, automatisch meer op grotere schermen */
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
         }
+
         .category-card {
             background-color: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 6px;
-            padding: 20px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
         }
+
         .category-card h2 {
             color: #fff;
-            font-size: 1.3rem;
+            font-size: 1.2rem;
             margin-top: 0;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             border-bottom: 1px solid var(--border-color);
             padding-bottom: 8px;
         }
+
         ul {
             list-style: none;
             padding: 0;
             margin: 0;
         }
+
         li {
-            margin-bottom: 10px;
+            margin-bottom: 12px; /* Iets meer ademruimte om makkelijk te tikken op mobiel */
         }
+
         a {
             color: var(--accent-color);
             text-decoration: none;
             word-break: break-all;
             display: inline-block;
             transition: transform 0.1s ease;
+            font-size: 0.95rem; /* Comfortabele leesgrootte op smartphones */
+            padding: 4px 0; /* Groter touch-oppervlak */
         }
+
         a:hover {
             text-decoration: underline;
             transform: translateX(3px);
         }
+
+        .tag-new {
+            color: #56d364;
+            font-weight: bold;
+            font-size: 0.8rem;
+            margin-left: 4px;
+        }
+
         footer {
             text-align: center;
-            margin-top: 50px;
+            margin-top: 40px;
             color: #8b949e;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border-color);
+            padding-top: 20px;
+        }
+
+        /* Extra media query optimalisaties voor heel kleine schermen */
+        @media (max-width: 480px) {
+            body {
+                padding: 15px 10px;
+            }
+            h1 {
+                font-size: 1.5rem;
+            }
+            .category-card {
+                padding: 12px;
+            }
         }
     </style>
 </head>
@@ -130,55 +173,4 @@
             <ul>
                 <li><a href="dashboardv1.html">dashboardv1.html</a></li>
                 <li><a href="dashboardv2.html">dashboardv2.html</a></li>
-                <li><a href="dashboardv3.html">dashboardv3.html</a></li>
-                <li><a href="dashboardv4.html">dashboardv4.html</a></li>
-            </ul>
-        </div>
-
-        <div class="category-card">
-            <h2>🧮 Rekenen & Calculators</h2>
-            <ul>
-                <li><a href="rekenen.html">rekenen.html</a></li>
-                <li><a href="rekenen1.html">rekenen1.html</a></li>
-                <li><a href="rekenen2.html">rekenen2.html</a></li>
-                <li><a href="rekenen3.html">rekenen3.html</a></li>
-                <li><a href="rekenen4.html">rekenen4.html</a></li>
-                <li><a href="rekenen5.html">rekenen5.html</a></li>
-                <li><a href="rekenen6.html">rekenen6.html</a></li>
-                <li><a href="rekenen7.html">rekenen7.html</a></li>
-                <li><a href="vortex_b6_partitie.html">vortex_b6_partitie.html</a></li>
-                <li><a href="vortex_cardioide.html">vortex_cardioide.html</a></li>
-                <li><a href="vortex_lithos_calculator.html">vortex_lithos_calculator.html</a></li>
-            </ul>
-        </div>
-
-        <div class="category-card">
-            <h2>💎 Geometrie, Tesseract & Enc-Dec</h2>
-            <ul>
-                <li><a href="hexeractv1.html">hexeractv1.html</a></li>
-                <li><a href="hexeract404.html">hexeract404.html</a></li>
-                <li><a href="tesseractv1.html">tesseractv1.html</a></li>
-                <li><a href="betegeling.html">betegeling.html</a></li>
-                <li><a href="enc-dec.html">enc-dec.html</a></li>
-                <li><a href="enc-decrechts.html">enc-decrechts.html</a></li>
-                <li><a href="els.html">els.html</a></li>
-            </ul>
-        </div>
-
-        <div class="category-card">
-            <h2>📁 Recente toevoegingen & Overig</h2>
-            <ul>
-                <li><a href="gemini-code-1779765188717.html">gemini-code-1779765188717.html</a> <small style="color: #56d364;">(Nieuw)</small></li>
-                <li><a href="702cents.html">702cents.html</a></li>
-            </ul>
-        </div>
-
-    </div>
-
-    <footer>
-        <p>Laatst bijgewerkt: zojuist</p>
-    </footer>
-</div>
-
-</body>
-</html>
+                <li><a href
