@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>[VORTEX] SHEAF ENGINE v1.0.8-manifold</title>
+    <style>
+        body {
+            background-color: #050505;
+            color: #00f3ff;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+        }
+
+        #interface-container {
+            width: 100%;
+            max-width: 1100px;
+            border: 1px solid #00f3ff;
+            background-color: #0a0a0a;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.15);
+        }
+
+        #hud-header {
+            white-space: pre-wrap;
+            margin-bottom: 20px;
+            line-height: 1.4;
+            border-bottom: 1px dashed #00f3ff;
+            padding-bottom: 15px;
+        }
+
+        .highlight-text {
+            color: #ff0055;
+            font-weight: bold;
+        }
+
+        #main-content {
+            display: flex;
+            flex-direction: row;
+            gap: 30px;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        canvas {
+            background-color: #050505;
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            cursor: pointer;
+        }
+
+        #controls {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .node-btn {
+            background: #111;
+            border: 1px solid #00f3ff;
+            color: #fff;
+            padding: 10px 15px;
+            text-align: left;
+            font-family: 'Courier New', Courier, monospace;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .node-btn:hover {
+            background: rgba(0, 243, 255, 0.2);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+
+        /* Specifieke kleuren voor de actieve resonantie-knoppen */
+        #btn-144 { border-left: 6px solid #ff0055; }
+        #btn-148 { border-left: 6px solid #ff9900; }
+        #btn-149 { border-left: 6px solid #00ef55; }
+        #btn-151 { border-left: 6px solid #b600ff; }
+        #btn-158 { border-left: 6px solid #ffff00; }
+
+        .status-footer {
+            margin-top: 20px;
+            font-size: 12px;
+            color: rgba(0, 243, 255, 0.5);
+            text-align: right;
+            border-top: 1px dashed rgba(0, 243, 255, 0.3);
+            padding-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="interface-container">
+    <div id="hud-header">
+[VORTEX] SHEAF ENGINE v1.0.8-manifold
+GRID: 13x18 (234 Discrete Nodes)
+RESONANTIE: 90 / 216 / 234 -> [<span style="color: #00ef55;">ADD4</span> & <span style="color: #ffff00;">ADD9</span> MATRIX MERGE]
+GOUDEN AS: <span class="highlight-text">Node 144</span>
+STATUS: [SYNC] Web Audio API AudioContext stand-by. Klik op een node om resonantie te activeren.
+    </div>
+
+    <div id="main-content">
+        <canvas id="sheafCanvas" width="550" height="700"></canvas>
+
+        <div id="controls">
+            <h3 style="margin-top:0; color:#00f3ff;">RESONANTIE MATRIX TRIGGER</h3>
+            <button class="node-btn" id="btn-144" onclick="triggerResonance(144, 440.00)">
+                <span>Gouden As (Root - N144)</span> <span>440.00 Hz</span>
+            </button>
+            <button class="node-btn" id="btn-148" onclick="triggerResonance(148, 554.37)">
+                <span>Terts (N148)</span> <span>554.37 Hz</span>
+            </button>
+            <button class="node-btn" id="btn-149" onclick="triggerResonance(149, 587.33)">
+                <span>add4 Kwart (N149)</span> <span>587.33 Hz</span>
+            </button>
+            <button class="node-btn" id="btn-151" onclick="triggerResonance(151, 659.25)">
+                <span>Reine Kwint (N151)</span> <span>659.25 Hz</span>
+            </button>
+            <button class="node-btn" id="btn-158" onclick="triggerResonance(158, 987.77)">
+                <span>add9 None (N158)</span> <span>987.77 Hz</span>
+            </button>
+            
+            <button class="node-btn" style="margin-top:15px; border-color:#fff; text-align:center; justify-content:center;" onclick="triggerFullChord()">
+                RESONEER VOLLEDIGE SHEAF CHORD
+            </button>
+        </div>
+    </div>
+
+    <div class="status-footer">
+        VORTEX CORE CYCLUS 234 // ONLINE // LATENCY: MINIMAL
+    </div>
+</div>
+
+<script>
+    // =====================================================================
+    // 1. GRID GENERATIE & DELAUNAY GEOMETRIE (13 rijen x 18 kolommen)
+    // =====================================================================
+    const canvas = document.getElementById('sheafCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const cols = 13;
+    const rows = 18;
+    const numNodes = cols * rows; // 234
+
+    const padding = 40;
+    const spacingX = (canvas.width - padding * 2) / (cols - 1);
+    const spacingY = (canvas.height - padding * 2) / (rows - 1);
+
+    const nodes = [];
+
+    // Genereer de 234 exacte nodes
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            nodes.push({
+                id: r * cols + c,
+                x: padding + c * spacingX,
+                y: padding + r * spacingY
+            });
+        }
+    }
+
+    // Specifieke actieve resonantie datapunten mapping
+    const activeNodes = {
+        144: { label: 'Node 144', color: '#ff0055', freq: 440.00 },  // Root
+        148: { label: 'Node 148', color: '#ff9900', freq: 554.37 },  // Terts
+        149: { label: 'Node 149', color: '#00ef55', freq: 587.33 },  // add4 Kwart
+        151: { label: 'Node 151', color: '#b600ff', freq: 659.25 },  // Reine Kwint
+        158: { label: 'Node 158', color: '#ffff00', freq: 987.77 }   // add9 None
+    };
+
+    // Render het complete netwerk (Grid + Delaunay Netwerk-lijnen nabootsing)
+    function drawNetwork() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Teken de netwerk-verbindingen (Delaunay-mesh)
+        ctx.strokeStyle = 'rgba(0, 243, 255, 0.25)';
+        ctx.lineWidth = 0.7;
+        
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                let currentIdx = r * cols + c;
+                let current = nodes[currentIdx];
+
+                // Horizontale verbinding
+                if (c < cols - 1) drawLine(current, nodes[currentIdx + 1]);
+                // Verticale verbinding
+                if (r < rows - 1) drawLine(current, nodes[currentIdx + cols]);
+                // Diagonale triangulatie verbindingen (Delaunay effect)
+                if (c < cols - 1 && r < rows - 1) {
+                    drawLine(current, nodes[currentIdx + cols + 1]);
+                    drawLine(nodes[currentIdx + 1], nodes[currentIdx + cols]);
+                }
+            }
+        }
+
+        // Teken de 234 basis-nodes
+        nodes.forEach(node => {
+            if (activeNodes[node.id]) return; // Sla actieve over om eroverheen te tekenen
+            ctx.fillStyle = 'rgba(0, 255, 170, 0.4)';
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // Highlight de actieve add4 / add9 / kwint datapunten
+        for (let id in activeNodes) {
+            let node = nodes[id];
+            let data = activeNodes[id];
+
+            // Gloed-effect
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = data.color;
+
+            ctx.fillStyle = data.color;
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Reset schaduw
+            ctx.shadowBlur = 0;
+
+            // Omranding
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Node ID Label tekst op canvas
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 10px monospace';
+            ctx.fillText("N" + id, node.x + 8, node.y + 3);
+        }
+    }
+
+    function drawLine(p1, p2) {
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+    }
+
+    // Interactie via Canvas kliks
+    canvas.addEventListener('click', function(e) {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Check of er op een actieve resonantie node geklikt is
+        for (let id in activeNodes) {
+            let node = nodes[id];
+            let dist = Math.hypot(node.x - mouseX, node.y - mouseY);
+            if (dist < 12) {
+                triggerResonance(id, activeNodes[id].freq);
+                break;
+            }
+        }
+    });
+
+    // =====================================================================
+    // 2. WEB AUDIO API SYNTHESIZER IMPLEMENTATIE
+    // =====================================================================
+    let audioCtx = null;
+
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    }
+
+    function triggerResonance(nodeId, frequency) {
+        initAudio();
+        
+        // Update de HUD status
+        document.getElementById('hud-header').innerHTML = `[VORTEX] SHEAF ENGINE v1.0.8-manifold\nGRID: 13x18 (234 Discrete Nodes)\nRESONANTIE: 90 / 216 / 234 -> [<span style="color: #00ef55;">ADD4</span> & <span style="color: #ffff00;">ADD9</span> MATRIX MERGE]\nGOUDEN AS: <span class="highlight-text">Node 144</span>\nSTATUS: [ACTIVE] Resoneren van Node ${nodeId} op ${frequency} Hz...`;
+
+        // Bouw een synthesizer voice (Oscillator + Gain Node voor de ADSR envelope)
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        osc.type = 'sine'; // Pure harmonische golfvorm
+        osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+
+        // Volume verloop (Envelope) tegen het kraken/klikken
+        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05); // Attack
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2); // Decay/Release
+
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + 1.2);
+    }
+
+    // Speel de complete harmonische sheaf-akkoord (alle datapunten tegelijk)
+    function triggerFullChord() {
+        initAudio();
+        document.getElementById('hud-header').innerHTML = `[VORTEX] SHEAF ENGINE v1.0.8-manifold\nGRID: 13x18 (234 Discrete Nodes)\nRESONANTIE: 90 / 216 / 234 -> [<span style="color: #00ef55;">ADD4</span> & <span style="color: #ffff00;">ADD9</span> MATRIX MERGE]\nGOUDEN AS: <span class="highlight-text">Node 144</span>\nSTATUS: [BURST] Volledige Harmonische Resonantie Matrix wordt afgevuurd!`;
+
+        for (let id in activeNodes) {
+            const frequency = activeNodes[id].freq;
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.1); // Iets zachter per stem vanwege stapeling
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2.0);
+
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 2.0);
+        }
+    }
+
+    // Start de canvas rendering
+    drawNetwork();
+</script>
+
+</body>
+</html>
